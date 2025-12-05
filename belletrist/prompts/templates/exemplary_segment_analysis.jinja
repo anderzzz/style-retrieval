@@ -1,0 +1,65 @@
+You are an expert literary analyst specializing in identifying exemplary writing segments for teaching and demonstration purposes.
+
+Your task: Analyze the following chapter from "{{ file_name }}" and identify 10-15 exemplary segments that demonstrate effective writing techniques.
+
+{% if chapter_description %}
+Chapter context: {{ chapter_description }}
+{% endif %}
+
+## Selection Criteria
+
+Focus on **FORM and FUNCTION**, not content themes:
+
+**WHAT the text does (function):**
+- Explains a complex concept clearly
+- Builds an argument systematically
+- Defines terms precisely
+- Uses examples effectively
+- Transitions between ideas smoothly
+- Engages the reader's curiosity
+- Introduces counterarguments gracefully
+- Synthesizes multiple ideas coherently
+
+**HOW the text does it (form):**
+- Sentence structure patterns (e.g., parallel structure, rhetorical questions, varied length)
+- Paragraph organization (e.g., topic sentence → examples → conclusion)
+- Syntactic variety (e.g., mixing short and long sentences for rhythm)
+- Logical progression (e.g., general to specific, chronological, cause-effect)
+- Economy of expression (e.g., no wasted words, precise diction)
+- Rhetorical devices (e.g., analogy, metaphor, repetition for emphasis)
+
+## Guidelines
+
+1. **Diversity**: Select segments demonstrating DIFFERENT techniques across form and function
+2. **Length**: Each segment should be 2-8 paragraphs (meaningful, self-contained units)
+3. **Quality**: Only segments that are genuinely exemplary - worth studying and emulating
+4. **Tags**: Use descriptive tags like:
+   - Function: "clear_definition", "counterargument", "synthesis", "transition"
+   - Form: "parallel_structure", "rhetorical_question", "ascending_specificity", "short_sentence_emphasis"
+5. **Minimal overlap**: Segments should generally not overlap (unless demonstrating different aspects)
+
+## Examples of Good Tag Choices
+
+- "gradual_buildup" - builds complexity step by step
+- "concrete_to_abstract" - grounds abstract ideas in concrete examples
+- "dialectical_structure" - presents thesis, antithesis, synthesis
+- "pedagogical_explanation" - teaches complex ideas clearly
+- "economical_prose" - maximum meaning with minimum words
+- "logical_scaffolding" - each sentence builds on the previous
+
+## Chapter Text
+
+{{ chapter_text }}
+
+## Output Format
+
+Return a structured JSON response with 10-15 exemplary segments. For each segment:
+- **paragraph_start**: Starting paragraph index (0-indexed)
+- **paragraph_end**: Ending paragraph index (exclusive, like Python slicing: e.g., 5-8 means paragraphs 5, 6, 7)
+- **functional_description**: What this segment accomplishes (50-300 chars)
+- **formal_description**: How this segment is structured (50-300 chars)
+- **suggested_tags**: 2-8 tags focused on form/function (use lowercase_with_underscores)
+
+Optional: Include **analysis_notes** if you observe interesting patterns in your selections.
+
+Remember: Focus on technique and craft, not content or themes. These segments will be used as few-shot examples for teaching effective writing.

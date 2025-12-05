@@ -661,3 +661,137 @@ class StyleJudgeComparative5WayConfig(BasePromptConfig):
     @classmethod
     def template_name(cls) -> str:
         return "style_judge_comparative_5way"
+
+
+# =============================================================================
+# Style Retrieval: Segment Analysis Models
+# =============================================================================
+
+class ExemplarySegment(BaseModel):
+    """A single exemplary segment identified in a chapter.
+
+    Focus: Form and function, not content themes.
+    Used as output from LLM analysis to identify segments worth cataloging
+    as few-shot examples.
+    """
+    paragraph_start: int = Field(
+        ...,
+        ge=0,
+        description="Starting paragraph index (0-indexed)"
+    )
+    paragraph_end: int = Field(
+        ...,
+        gt=0,
+        description="Ending paragraph index (exclusive, like Python slicing)"
+    )
+    functional_description: str = Field(
+        ...,
+        min_length=20,
+        max_length=500,
+        description="What this segment accomplishes: explains, persuades, defines, transitions, etc."
+    )
+    formal_description: str = Field(
+        ...,
+        min_length=20,
+        max_length=500,
+        description="How this segment is structured: syntax patterns, paragraph organization, logical flow, etc."
+    )
+    suggested_tags: List[str] = Field(
+        ...,
+        min_items=2,
+        max_items=8,
+        description="Descriptive tags focusing on form/function (e.g., 'clear_definition', 'parallel_structure', 'gradual_buildup')"
+    )
+
+    @field_validator('paragraph_end')
+    @classmethod
+    def validate_range(cls, v: int, info) -> int:
+        """Ensure paragraph_end > paragraph_start."""
+        if 'paragraph_start' in info.data and v <= info.data['paragraph_start']:
+            raise ValueError("paragraph_end must be greater than paragraph_start")
+        return v
+
+    @field_validator('suggested_tags')
+    @classmethod
+    def validate_tags(cls, v: List[str]) -> List[str]:
+        """Ensure tags are lowercase with underscores, normalized."""
+        cleaned = []
+        for tag in v:
+            # Convert to lowercase, replace spaces/hyphens with underscores
+            cleaned_tag = tag.lower().strip().replace(' ', '_').replace('-', '_')
+            if cleaned_tag:
+                cleaned.append(cleaned_tag)
+
+        if len(cleaned) < 2:
+            raise ValueError("At least 2 valid tags required after normalization")
+
+        return cleaned
+
+
+class ExemplarySegmentAnalysis(BaseModel):
+    """Complete analysis result: list of exemplary segments from a chapter.
+
+    LLM should identify 10-15 segments per chapter focusing on diverse
+    forms and functions. This serves as the structured output from the
+    segment analysis workflow.
+    """
+    segments: List[ExemplarySegment] = Field(
+        ...,
+        min_length=10,
+        max_length=15,
+        description="10-15 exemplary segments demonstrating diverse forms/functions"
+    )
+    analysis_notes: str = Field(
+        default="",
+        max_length=1000,
+        description="Optional: Brief notes on selection criteria or patterns observed"
+    )
+
+    @field_validator('segments')
+    @classmethod
+    def validate_no_overlaps(cls, v: List[ExemplarySegment]) -> List[ExemplarySegment]:
+        """Check for overlapping segments (soft warning, not enforced).
+
+        Overlaps might be intentional when demonstrating different aspects
+        of the same text, so we don't fail validation, just track them.
+        """
+        # Sort by start for overlap detection
+        sorted_segs = sorted(v, key=lambda s: s.paragraph_start)
+
+        overlaps = []
+        for i in range(len(sorted_segs) - 1):
+            if sorted_segs[i].paragraph_end > sorted_segs[i+1].paragraph_start:
+                overlaps.append((i, i+1))
+
+        # Overlaps are allowed but noted
+        # Future: could add logging here if needed
+
+        return v
+
+
+class ExemplarySegmentAnalysisConfig(BasePromptConfig):
+    """Configuration for exemplary_segment_analysis.jinja.
+
+    Analyzes a chapter to identify 10-15 exemplary segments worth
+    cataloging as few-shot examples. Focus is on form/function, not
+    content themes.
+    """
+
+    chapter_text: str = Field(
+        ...,
+        min_length=1000,
+        description="Full chapter text to analyze"
+    )
+    file_name: str = Field(
+        ...,
+        min_length=1,
+        description="Source file name for context"
+    )
+    chapter_description: str | None = Field(
+        None,
+        description="Optional: Brief description of chapter content/theme"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "exemplary_segment_analysis"
