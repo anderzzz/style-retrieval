@@ -8,6 +8,11 @@ This script demonstrates:
 4. Retrieving segments via catalog browsing
 
 Follows the Anthropic skills pattern: agents browse catalog, choose what to retrieve.
+
+USAGE:
+    1. Set configuration parameters below (API key, model, data paths, etc.)
+    2. Run: python runs/style_retrieval.py
+    3. Monitor output as workflow progresses
 """
 import os
 from pathlib import Path
@@ -15,6 +20,39 @@ from typing import List
 
 from belletrist import LLM, LLMConfig, PromptMaker, DataSampler, SegmentStore
 from belletrist.prompts import ExemplarySegmentAnalysisConfig, ExemplarySegmentAnalysis
+
+
+# ============================================================================
+# CONFIGURATION - Modify these parameters before running
+# ============================================================================
+
+# API Configuration
+# Set your API key and corresponding model
+API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')  # or set directly: "sk-..."
+MODEL = "claude-3-5-sonnet-20241022"  # Options: "gpt-4o", "mistral/mistral-large-2411", etc.
+
+# Alternative examples:
+# API_KEY = os.environ.get('OPENAI_API_KEY', '')
+# MODEL = "gpt-4o"
+#
+# API_KEY = os.environ.get('MISTRAL_API_KEY', '')
+# MODEL = "mistral/mistral-large-2411"
+
+# Data Paths
+DATA_PATH = Path(__file__).parent.parent / "data" / "russell"
+DB_PATH = Path(__file__).parent.parent / "segments.db"
+
+# Analysis Parameters
+FILE_INDEX = 0  # Which file to analyze (0 = first file)
+CHAPTER_START = 0  # Starting paragraph
+CHAPTER_END = 50  # Ending paragraph (first ~50 paragraphs)
+TEMPERATURE = 0.7  # LLM temperature for segment selection
+
+# Catalog Browsing
+CATALOG_PREVIEW_LIMIT = 5  # Number of segments to show in browse demo
+TAG_PREVIEW_LIMIT = 10  # Number of tags to show in tag list
+
+# ============================================================================
 
 
 def analyze_chapter(
@@ -37,22 +75,25 @@ def analyze_chapter(
         ExemplarySegmentAnalysis with identified segments
     """
     # Load chapter
+    print("\n[1/3] Loading chapter text...")
     chapter_segment = sampler.get_paragraph_chunk(file_index, paragraph_range)
 
-    print(f"\nAnalyzing: {chapter_segment.file_path.name}")
-    print(f"Paragraphs: {chapter_segment.paragraph_start}-{chapter_segment.paragraph_end}")
-    print(f"Length: {len(chapter_segment.text)} characters\n")
+    print(f"      File: {chapter_segment.file_path.name}")
+    print(f"      Paragraphs: {chapter_segment.paragraph_start}-{chapter_segment.paragraph_end}")
+    print(f"      Length: {len(chapter_segment.text):,} characters")
 
     # Configure prompt
+    print("\n[2/3] Preparing analysis prompt...")
     config = ExemplarySegmentAnalysisConfig(
         chapter_text=chapter_segment.text,
         file_name=chapter_segment.file_path.name
     )
-
     prompt = prompt_maker.render(config)
+    print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
 
     # Call LLM with structured output
-    print("Calling LLM for segment analysis...")
+    print("\n[3/3] Calling LLM for segment analysis...")
+    print(f"      (This may take 30-60 seconds...)")
     response = llm.complete_with_schema(
         prompt=prompt,
         schema_model=ExemplarySegmentAnalysis,
@@ -61,9 +102,10 @@ def analyze_chapter(
 
     analysis: ExemplarySegmentAnalysis = response.content
 
-    print(f"✓ Identified {len(analysis.segments)} exemplary segments")
+    print(f"\n      ✓ Analysis complete!")
+    print(f"      Identified {len(analysis.segments)} exemplary segments")
     if analysis.analysis_notes:
-        print(f"Notes: {analysis.analysis_notes[:200]}...")
+        print(f"      Notes: {analysis.analysis_notes[:150]}...")
 
     return analysis
 
@@ -89,7 +131,7 @@ def store_segments(
     """
     segment_ids = []
 
-    for seg in analysis.segments:
+    for i, seg in enumerate(analysis.segments, 1):
         # Calculate absolute paragraph range
         abs_start = base_paragraph_offset + seg.paragraph_start
         abs_end = base_paragraph_offset + seg.paragraph_end
@@ -109,12 +151,19 @@ def store_segments(
         )
 
         segment_ids.append(segment_id)
-        print(f"  Saved: {segment_id} (paragraphs {abs_start}-{abs_end})")
+        print(f"  [{i}/{len(analysis.segments)}] {segment_id}")
+        print(f"       Paragraphs: {abs_start}-{abs_end}")
+        print(f"       Tags: {', '.join(seg.suggested_tags)}")
 
     return segment_ids
 
 
-def browse_and_retrieve_example(store: SegmentStore, sampler: DataSampler):
+def browse_and_retrieve_example(
+    store: SegmentStore,
+    sampler: DataSampler,
+    catalog_limit: int = 5,
+    tag_limit: int = 10
+):
     """Demonstrate catalog browsing and retrieval (skills pattern).
 
     This simulates how an agent would:
@@ -127,117 +176,153 @@ def browse_and_retrieve_example(store: SegmentStore, sampler: DataSampler):
     print("="*60)
 
     # Step 1: List available tags
-    print("\n1. Available tags in catalog:")
+    print("\n[1/3] Listing available tags...")
     tags = store.list_all_tags()
-    for tag, count in list(tags.items())[:10]:  # Top 10
-        print(f"   - {tag}: {count} segments")
+    print(f"      Found {len(tags)} unique tags in catalog")
+    print(f"\n      Top {tag_limit} tags:")
+    for tag, count in list(tags.items())[:tag_limit]:
+        print(f"      - {tag}: {count} segments")
 
     # Step 2: Browse catalog summaries
-    print("\n2. Browsing catalog (first 5 segments):")
-    catalog = store.browse_catalog(limit=5)
-    for entry in catalog:
-        print(f"\n   {entry['segment_id']} ({entry['file_name']})")
-        print(f"   Range: paragraphs {entry['paragraph_range']}")
-        print(f"   Function: {entry['functional_description'][:80]}...")
-        print(f"   Form: {entry['formal_description'][:80]}...")
-        print(f"   Tags: {', '.join(entry['tags'])}")
+    print(f"\n[2/3] Browsing catalog (showing {catalog_limit} segments)...")
+    catalog = store.browse_catalog(limit=catalog_limit)
+    print(f"      Retrieved {len(catalog)} segment summaries")
+    for i, entry in enumerate(catalog, 1):
+        print(f"\n      Segment {i}/{len(catalog)}: {entry['segment_id']}")
+        print(f"      File: {entry['file_name']}")
+        print(f"      Range: paragraphs {entry['paragraph_range']}")
+        print(f"      Function: {entry['functional_description'][:80]}...")
+        print(f"      Form: {entry['formal_description'][:80]}...")
+        print(f"      Tags: {', '.join(entry['tags'])}")
 
     # Step 3: Retrieve a specific segment
     if catalog:
         segment_id = catalog[0]['segment_id']
-        print(f"\n3. Retrieving full segment: {segment_id}")
+        print(f"\n[3/3] Retrieving full text for segment: {segment_id}")
         record = store.get_segment(segment_id)
 
         if record:
-            print(f"\n   Full text ({len(record.text)} chars):")
-            print(f"   {record.text[:300]}...")
+            print(f"      ✓ Retrieved {len(record.text)} characters")
+            print(f"\n      Preview (first 300 chars):")
+            print(f"      {record.text[:300]}...")
 
             # Demonstrate conversion back to TextSegment
             text_segment = record.to_text_segment(sampler)
-            print(f"\n   Re-retrieved via DataSampler:")
-            print(f"   File: {text_segment.file_path.name}")
-            print(f"   Range: {text_segment.paragraph_start}-{text_segment.paragraph_end}")
+            print(f"\n      ✓ Re-retrieved via DataSampler:")
+            print(f"        File: {text_segment.file_path.name}")
+            print(f"        Range: {text_segment.paragraph_start}-{text_segment.paragraph_end}")
 
 
 def main():
     """Main workflow: analyze, store, browse, retrieve."""
 
-    # Configuration
-    DATA_PATH = Path(__file__).parent.parent / "data" / "russell"
-    DB_PATH = Path(__file__).parent.parent / "segments.db"
+    # Validate configuration
+    print("="*60)
+    print("STYLE RETRIEVAL WORKFLOW")
+    print("="*60)
+    print("\n[Setup] Validating configuration...")
 
-    # Get API key (try multiple providers)
-    api_key = (
-        os.environ.get('ANTHROPIC_API_KEY') or
-        os.environ.get('OPENAI_API_KEY') or
-        os.environ.get('MISTRAL_API_KEY')
-    )
-
-    if not api_key:
+    if not API_KEY:
         raise ValueError(
-            "No API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or MISTRAL_API_KEY"
+            "API_KEY not set. Please configure API_KEY in the configuration section."
         )
 
-    # Determine model from available key
-    if os.environ.get('ANTHROPIC_API_KEY'):
-        model = "claude-3-5-sonnet-20241022"
-    elif os.environ.get('OPENAI_API_KEY'):
-        model = "gpt-4o"
-    else:
-        model = "mistral/mistral-large-2411"
+    if not DATA_PATH.exists():
+        raise ValueError(
+            f"DATA_PATH does not exist: {DATA_PATH}\n"
+            f"Please ensure your data files are in the correct location."
+        )
+
+    print(f"        Model: {MODEL}")
+    print(f"        Data: {DATA_PATH}")
+    print(f"        Database: {DB_PATH}")
+    print(f"        Target: File {FILE_INDEX}, paragraphs {CHAPTER_START}-{CHAPTER_END}")
 
     # Initialize components
+    print("\n[Setup] Initializing components...")
     sampler = DataSampler(DATA_PATH)
+    print(f"        ✓ DataSampler loaded {len(sampler.fps)} files")
+
     llm = LLM(LLMConfig(
-        model=model,
-        api_key=api_key,
-        temperature=0.7
+        model=MODEL,
+        api_key=API_KEY,
+        temperature=TEMPERATURE
     ))
+    print(f"        ✓ LLM configured: {MODEL} (temp={TEMPERATURE})")
+
     prompt_maker = PromptMaker()
+    print(f"        ✓ PromptMaker ready")
 
-    print(f"Initialized with model: {model}")
-    print(f"Data corpus: {len(sampler.fps)} files")
-
-    # Create/open segment store
+    # Open/create segment store
+    print(f"\n[Setup] Opening segment database: {DB_PATH}")
     with SegmentStore(DB_PATH) as store:
+        print(f"        ✓ SegmentStore connected")
 
-        # ANALYSIS PHASE: Analyze first chapter of first file
-        # (In production, loop through all chapters/files)
-        file_index = 0
-        chapter_range = slice(0, 50)  # First ~50 paragraphs
+        # ====================================================================
+        # PHASE 1: ANALYSIS
+        # ====================================================================
+        print("\n" + "="*60)
+        print("PHASE 1: ANALYZE CHAPTER FOR EXEMPLARY SEGMENTS")
+        print("="*60)
+
+        chapter_range = slice(CHAPTER_START, CHAPTER_END)
 
         analysis = analyze_chapter(
             sampler=sampler,
             llm=llm,
             prompt_maker=prompt_maker,
-            file_index=file_index,
+            file_index=FILE_INDEX,
             paragraph_range=chapter_range
         )
 
-        # STORAGE PHASE: Store identified segments
-        print("\nStoring segments in catalog...")
+        # ====================================================================
+        # PHASE 2: STORAGE
+        # ====================================================================
+        print("\n" + "="*60)
+        print("PHASE 2: STORE SEGMENTS IN CATALOG")
+        print("="*60)
+        print(f"\nStoring {len(analysis.segments)} identified segments...")
+
         segment_ids = store_segments(
             store=store,
             sampler=sampler,
             analysis=analysis,
-            file_index=file_index,
+            file_index=FILE_INDEX,
             base_paragraph_offset=chapter_range.start
         )
 
-        print(f"\n✓ Stored {len(segment_ids)} segments: {segment_ids[0]} ... {segment_ids[-1]}")
+        print(f"\n✓ Successfully stored {len(segment_ids)} segments")
+        print(f"  First: {segment_ids[0]}")
+        print(f"  Last:  {segment_ids[-1]}")
 
-        # RETRIEVAL PHASE: Demonstrate browsing and retrieval
-        browse_and_retrieve_example(store, sampler)
+        # ====================================================================
+        # PHASE 3: RETRIEVAL DEMO
+        # ====================================================================
+        print("\n" + "="*60)
+        print("PHASE 3: DEMONSTRATE CATALOG RETRIEVAL")
+        print("="*60)
 
+        browse_and_retrieve_example(
+            store=store,
+            sampler=sampler,
+            catalog_limit=CATALOG_PREVIEW_LIMIT,
+            tag_limit=TAG_PREVIEW_LIMIT
+        )
+
+    # ====================================================================
+    # COMPLETION
+    # ====================================================================
     print("\n" + "="*60)
     print("WORKFLOW COMPLETE")
     print("="*60)
     print(f"\nSegment catalog saved to: {DB_PATH}")
-    print("Agents can now browse and retrieve examples via:")
-    print("  - store.list_all_tags() → see available categories")
-    print("  - store.browse_catalog() → read descriptions")
-    print("  - store.get_segment(id) → retrieve full text")
-    print("  - store.search_by_tag(tag) → filter by form/function")
+    print(f"Total segments stored: {len(segment_ids)}")
+    print("\nNext steps - agents can now:")
+    print("  • store.list_all_tags() → discover available categories")
+    print("  • store.browse_catalog() → read segment descriptions")
+    print("  • store.get_segment(id) → retrieve full text")
+    print("  • store.search_by_tag(tag) → filter by form/function")
+    print("="*60)
 
 
 if __name__ == "__main__":
