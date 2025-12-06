@@ -4,6 +4,7 @@ Pydantic models for prompt templates.
 Each model corresponds to a Jinja template in the prompts/ directory,
 providing type-safe validation and clear documentation of required variables.
 """
+from typing import List
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, field_validator
 

@@ -10,7 +10,7 @@ from jinja2 import Environment, FileSystemLoader
 from belletrist.prompts import BasePromptConfig
 
 
-PROMPTS_PATH = (Path(__file__).parent.parent / "prompts").resolve()
+PROMPTS_PATH = (Path(__file__).parent / "prompts" / "templates").resolve()
 
 class PromptMaker:
     """Constructs prompt snippets from Jinja templates using Pydantic models."""

@@ -28,8 +28,8 @@ from belletrist.prompts import ExemplarySegmentAnalysisConfig, ExemplarySegmentA
 
 # API Configuration
 # Set your API key and corresponding model
-API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')  # or set directly: "sk-..."
-MODEL = "claude-3-5-sonnet-20241022"  # Options: "gpt-4o", "mistral/mistral-large-2411", etc.
+API_KEY = os.environ.get('MISTRAL_API_KEY', '')  # or set directly: "sk-..."
+MODEL = "mistral/mistral-large-2411"
 
 # Alternative examples:
 # API_KEY = os.environ.get('OPENAI_API_KEY', '')
@@ -44,8 +44,8 @@ DB_PATH = Path(__file__).parent.parent / "segments.db"
 
 # Analysis Parameters
 FILE_INDEX = 0  # Which file to analyze (0 = first file)
-CHAPTER_START = 0  # Starting paragraph
-CHAPTER_END = 50  # Ending paragraph (first ~50 paragraphs)
+CHAPTER_START = 9  # Starting paragraph
+CHAPTER_END = 41  # Ending paragraph (first ~50 paragraphs)
 TEMPERATURE = 0.7  # LLM temperature for segment selection
 
 # Catalog Browsing
@@ -93,7 +93,6 @@ def analyze_chapter(
 
     # Call LLM with structured output
     print("\n[3/3] Calling LLM for segment analysis...")
-    print(f"      (This may take 30-60 seconds...)")
     response = llm.complete_with_schema(
         prompt=prompt,
         schema_model=ExemplarySegmentAnalysis,
