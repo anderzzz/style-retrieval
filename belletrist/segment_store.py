@@ -356,6 +356,71 @@ class SegmentStore:
 
         return summaries
 
+    def delete_segment(self, segment_id: str) -> bool:
+        """Delete a segment from the catalog.
+
+        Args:
+            segment_id: Segment identifier (e.g., "seg_001")
+
+        Returns:
+            True if segment was deleted, False if not found
+
+        Example:
+            deleted = store.delete_segment("seg_003")
+            if deleted:
+                print("Segment deleted")
+            else:
+                print("Segment not found")
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM segments WHERE segment_id = ?", (segment_id,))
+        self.conn.commit()
+        return cursor.rowcount > 0
+
+    def clear_all(self, confirm: bool = False) -> int:
+        """Delete all segments from the catalog.
+
+        WARNING: This permanently deletes all data!
+
+        Args:
+            confirm: Must be True to actually perform deletion (safety check)
+
+        Returns:
+            Number of segments deleted
+
+        Example:
+            # Clear all segments
+            count = store.clear_all(confirm=True)
+            print(f"Deleted {count} segments")
+
+            # Safety check prevents accidental deletion
+            store.clear_all()  # Does nothing, returns 0
+        """
+        if not confirm:
+            return 0
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM segments")
+        count = cursor.fetchone()[0]
+
+        cursor.execute("DELETE FROM segments")
+        self.conn.commit()
+        return count
+
+    def get_count(self) -> int:
+        """Get total number of segments in the catalog.
+
+        Returns:
+            Total segment count
+
+        Example:
+            count = store.get_count()
+            print(f"Catalog contains {count} segments")
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM segments")
+        return cursor.fetchone()[0]
+
     def _row_to_record(self, row: sqlite3.Row) -> SegmentRecord:
         """Convert database row to SegmentRecord.
 
