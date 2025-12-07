@@ -257,14 +257,33 @@ class LLM:
                 # Different error, re-raise
                 raise
 
+        # Extract JSON from response (handle markdown wrapping)
+        content = response.content.strip()
+
+        # Check if JSON is wrapped in markdown code blocks
+        if content.startswith("```"):
+            # Extract content between ``` markers
+            lines = content.split('\n')
+            # Skip first line (```json or ```)
+            start_idx = 1
+            # Find closing ```
+            end_idx = len(lines)
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "```":
+                    end_idx = i
+                    break
+            content = '\n'.join(lines[start_idx:end_idx])
+
         # Parse and validate response against schema
         try:
-            parsed_data = json.loads(response.content)
+            parsed_data = json.loads(content)
         except json.JSONDecodeError as e:
             raise ValueError(
                 f"LLM returned invalid JSON for {schema_model.__name__} schema.\n"
                 f"Error: {e}\n"
-                f"Response preview: {response.content[:500]}"
+                f"Response preview: {response.content[:500]}\n"
+                f"This might indicate the response was truncated due to token limits.\n"
+                f"Consider increasing max_tokens in LLMConfig or reducing the amount of data requested."
             ) from e
 
         try:

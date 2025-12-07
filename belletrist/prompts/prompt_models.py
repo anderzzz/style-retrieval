@@ -669,50 +669,46 @@ class StyleJudgeComparative5WayConfig(BasePromptConfig):
 # =============================================================================
 
 class ExemplarySegment(BaseModel):
-    """A single exemplary segment identified in a chapter.
+    """A single exemplary passage identified in a chapter.
 
-    Focus: Form and function, not content themes.
-    Used as output from LLM analysis to identify segments worth cataloging
+    Focus: Teachable craft moves demonstrating form and function.
+    Used as output from LLM analysis to identify passages worth cataloging
     as few-shot examples.
     """
-    paragraph_start: int = Field(
+    text: str = Field(
         ...,
-        ge=0,
-        description="Starting paragraph index (0-indexed)"
+        min_length=50,
+        description="The full extracted passage demonstrating the craft move"
     )
-    paragraph_end: int = Field(
+    craft_move: str = Field(
         ...,
-        gt=0,
-        description="Ending paragraph index (exclusive, like Python slicing)"
+        min_length=3,
+        max_length=100,
+        description="Short, specific name for what this passage demonstrates (e.g., 'concessive_pivot', 'rhythmic_clincher')"
     )
-    functional_description: str = Field(
+    teaching_note: str = Field(
         ...,
-        min_length=20,
-        max_length=500,
-        description="What this segment accomplishes: explains, persuades, defines, transitions, etc."
+        min_length=50,
+        max_length=800,
+        description="2-4 sentences explaining what makes this passage exemplary. Write as if briefing another writing teacher."
     )
-    formal_description: str = Field(
+    tags: List[str] = Field(
         ...,
-        min_length=20,
-        max_length=500,
-        description="How this segment is structured: syntax patterns, paragraph organization, logical flow, etc."
-    )
-    suggested_tags: List[str] = Field(
-        ...,
-        min_items=2,
-        max_items=8,
-        description="Descriptive tags focusing on form/function (e.g., 'clear_definition', 'parallel_structure', 'gradual_buildup')"
+        min_length=3,
+        max_length=6,
+        description="3-6 lowercase tags for retrieval, including both structural tags (what it does) and technique tags (how it does it)"
     )
 
-    @field_validator('paragraph_end')
+    @field_validator('craft_move')
     @classmethod
-    def validate_range(cls, v: int, info) -> int:
-        """Ensure paragraph_end > paragraph_start."""
-        if 'paragraph_start' in info.data and v <= info.data['paragraph_start']:
-            raise ValueError("paragraph_end must be greater than paragraph_start")
-        return v
+    def validate_craft_move(cls, v: str) -> str:
+        """Ensure craft_move uses underscores, is lowercase."""
+        cleaned = v.lower().strip().replace(' ', '_').replace('-', '_')
+        if not cleaned:
+            raise ValueError("craft_move cannot be empty")
+        return cleaned
 
-    @field_validator('suggested_tags')
+    @field_validator('tags')
     @classmethod
     def validate_tags(cls, v: List[str]) -> List[str]:
         """Ensure tags are lowercase with underscores, normalized."""
@@ -723,57 +719,35 @@ class ExemplarySegment(BaseModel):
             if cleaned_tag:
                 cleaned.append(cleaned_tag)
 
-        if len(cleaned) < 2:
-            raise ValueError("At least 2 valid tags required after normalization")
+        if len(cleaned) < 3:
+            raise ValueError("At least 3 valid tags required after normalization")
 
         return cleaned
 
 
 class ExemplarySegmentAnalysis(BaseModel):
-    """Complete analysis result: list of exemplary segments from a chapter.
+    """Complete analysis result: list of exemplary passages from a chapter.
 
-    LLM should identify 10-15 segments per chapter focusing on diverse
-    forms and functions. This serves as the structured output from the
-    segment analysis workflow.
+    LLM identifies passages demonstrating teachable craft moves.
+    This serves as the structured output from the segment analysis workflow.
     """
-    segments: List[ExemplarySegment] = Field(
+    passages: List[ExemplarySegment] = Field(
         ...,
-        min_length=10,
-        max_length=15,
-        description="10-15 exemplary segments demonstrating diverse forms/functions"
+        min_length=5,
+        max_length=20,
+        description="List of exemplary passages demonstrating diverse craft moves"
     )
-    analysis_notes: str = Field(
-        default="",
+    overall_observations: str | None = Field(
+        default=None,
         max_length=1000,
-        description="Optional: Brief notes on selection criteria or patterns observed"
+        description="Optional: Patterns noticed across selections that characterize the author's style broadly"
     )
-
-    @field_validator('segments')
-    @classmethod
-    def validate_no_overlaps(cls, v: List[ExemplarySegment]) -> List[ExemplarySegment]:
-        """Check for overlapping segments (soft warning, not enforced).
-
-        Overlaps might be intentional when demonstrating different aspects
-        of the same text, so we don't fail validation, just track them.
-        """
-        # Sort by start for overlap detection
-        sorted_segs = sorted(v, key=lambda s: s.paragraph_start)
-
-        overlaps = []
-        for i in range(len(sorted_segs) - 1):
-            if sorted_segs[i].paragraph_end > sorted_segs[i+1].paragraph_start:
-                overlaps.append((i, i+1))
-
-        # Overlaps are allowed but noted
-        # Future: could add logging here if needed
-
-        return v
 
 
 class ExemplarySegmentAnalysisConfig(BasePromptConfig):
     """Configuration for exemplary_segment_analysis.jinja.
 
-    Analyzes a chapter to identify 10-15 exemplary segments worth
+    Analyzes a chapter to identify exemplary segments worth
     cataloging as few-shot examples. Focus is on form/function, not
     content themes.
     """
@@ -787,6 +761,12 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
         ...,
         min_length=1,
         description="Source file name for context"
+    )
+    num_segments: int = Field(
+        default=12,
+        ge=5,
+        le=20,
+        description="Number of exemplary segments to identify (5-20)"
     )
     chapter_description: str | None = Field(
         None,

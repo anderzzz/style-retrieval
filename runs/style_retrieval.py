@@ -28,8 +28,9 @@ from belletrist.prompts import ExemplarySegmentAnalysisConfig, ExemplarySegmentA
 
 # API Configuration
 # Set your API key and corresponding model
-API_KEY = os.environ.get('MISTRAL_API_KEY', '')  # or set directly: "sk-..."
-MODEL = "mistral/mistral-large-2411"
+API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')  # or set directly: "sk-..."
+#MODEL = "mistral/mistral-large-2411"
+MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
 
 # Alternative examples:
 # API_KEY = os.environ.get('OPENAI_API_KEY', '')
@@ -86,7 +87,8 @@ def analyze_chapter(
     print("\n[2/3] Preparing analysis prompt...")
     config = ExemplarySegmentAnalysisConfig(
         chapter_text=chapter_segment.text,
-        file_name=chapter_segment.file_path.name
+        file_name=chapter_segment.file_path.name,
+        num_segments=5  # Request 12 passages
     )
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
@@ -96,17 +98,65 @@ def analyze_chapter(
     response = llm.complete_with_schema(
         prompt=prompt,
         schema_model=ExemplarySegmentAnalysis,
-        temperature=0.7  # Some creativity in selection
     )
 
     analysis: ExemplarySegmentAnalysis = response.content
 
     print(f"\n      ✓ Analysis complete!")
-    print(f"      Identified {len(analysis.segments)} exemplary segments")
-    if analysis.analysis_notes:
-        print(f"      Notes: {analysis.analysis_notes[:150]}...")
+    print(f"      Identified {len(analysis.passages)} exemplary passages")
+    if analysis.overall_observations:
+        print(f"      Observations: {analysis.overall_observations[:150]}...")
 
     return analysis
+
+
+def find_passage_in_chapter(
+    passage_text: str,
+    chapter_text: str,
+    sampler: DataSampler,
+    file_index: int,
+    chapter_start_paragraph: int
+) -> tuple[int, int] | None:
+    """Find paragraph range for a passage within a chapter.
+
+    Args:
+        passage_text: The extracted passage text to locate
+        chapter_text: Full chapter text
+        sampler: DataSampler for accessing paragraphs
+        file_index: File index
+        chapter_start_paragraph: Starting paragraph index of the chapter
+
+    Returns:
+        Tuple of (paragraph_start, paragraph_end) or None if not found
+    """
+    # Normalize text for comparison (remove extra whitespace)
+    normalized_passage = ' '.join(passage_text.split())
+
+    # Try to find the passage in the chapter text
+    if normalized_passage not in ' '.join(chapter_text.split()):
+        return None
+
+    # Iterate through paragraphs to find the match
+    # Start with single paragraphs, then expand to multi-paragraph chunks
+    file_path = sampler.fps[file_index]
+    max_paragraphs = sampler.n_paragraphs[file_path.name]
+
+    for length in range(1, 10):  # Try up to 10 paragraphs
+        for start_offset in range(0, 50):  # Search within first 50 paragraphs
+            abs_start = chapter_start_paragraph + start_offset
+            abs_end = abs_start + length
+
+            # Don't go beyond file bounds
+            if abs_end > max_paragraphs:
+                break
+
+            chunk = sampler.get_paragraph_chunk(file_index, slice(abs_start, abs_end))
+            normalized_chunk = ' '.join(chunk.text.split())
+
+            if normalized_passage in normalized_chunk:
+                return (abs_start, abs_end)
+
+    return None
 
 
 def store_segments(
@@ -114,45 +164,59 @@ def store_segments(
     sampler: DataSampler,
     analysis: ExemplarySegmentAnalysis,
     file_index: int,
+    chapter_text: str,
     base_paragraph_offset: int = 0
 ) -> List[str]:
-    """Store identified segments in the catalog.
+    """Store identified passages in the catalog.
 
     Args:
         store: SegmentStore for saving
-        sampler: DataSampler for retrieving exact text
-        analysis: Analysis results with segments
+        sampler: DataSampler for paragraph lookup
+        analysis: Analysis results with passages
         file_index: File index being processed
-        base_paragraph_offset: Offset to add to paragraph indices (if analyzing sub-chapter)
+        chapter_text: Full chapter text for locating passages
+        base_paragraph_offset: Starting paragraph index of the chapter
 
     Returns:
         List of generated segment_ids
     """
     segment_ids = []
 
-    for i, seg in enumerate(analysis.segments, 1):
-        # Calculate absolute paragraph range
-        abs_start = base_paragraph_offset + seg.paragraph_start
-        abs_end = base_paragraph_offset + seg.paragraph_end
+    for i, passage in enumerate(analysis.passages, 1):
+        print(f"\n  [{i}/{len(analysis.passages)}] Processing: {passage.craft_move}")
 
-        # Retrieve exact text via DataSampler
-        text_segment = sampler.get_paragraph_chunk(
+        # Try to find passage location in chapter
+        para_range = find_passage_in_chapter(
+            passage.text,
+            chapter_text,
+            sampler,
             file_index,
-            slice(abs_start, abs_end)
+            base_paragraph_offset
         )
+
+        if para_range is None:
+            print(f"       ⚠ Warning: Could not locate passage in chapter, using approximate range")
+            # Use approximate range based on position
+            para_start = base_paragraph_offset
+            para_end = base_paragraph_offset + 1
+        else:
+            para_start, para_end = para_range
+
+        # Retrieve TextSegment from sampler using found paragraph range
+        text_segment = sampler.get_paragraph_chunk(file_index, slice(para_start, para_end))
 
         # Save to store
         segment_id = store.save_segment(
             text_segment=text_segment,
-            functional_description=seg.functional_description,
-            formal_description=seg.formal_description,
-            tags=seg.suggested_tags
+            craft_move=passage.craft_move,
+            teaching_note=passage.teaching_note,
+            tags=passage.tags
         )
 
         segment_ids.append(segment_id)
-        print(f"  [{i}/{len(analysis.segments)}] {segment_id}")
-        print(f"       Paragraphs: {abs_start}-{abs_end}")
-        print(f"       Tags: {', '.join(seg.suggested_tags)}")
+        print(f"       ✓ Saved: {segment_id}")
+        print(f"       Paragraphs: {para_start}-{para_end}")
+        print(f"       Tags: {', '.join(passage.tags)}")
 
     return segment_ids
 
@@ -190,8 +254,8 @@ def browse_and_retrieve_example(
         print(f"\n      Segment {i}/{len(catalog)}: {entry['segment_id']}")
         print(f"      File: {entry['file_name']}")
         print(f"      Range: paragraphs {entry['paragraph_range']}")
-        print(f"      Function: {entry['functional_description'][:80]}...")
-        print(f"      Form: {entry['formal_description'][:80]}...")
+        print(f"      Craft Move: {entry['craft_move']}")
+        print(f"      Teaching Note: {entry['teaching_note'][:80]}...")
         print(f"      Tags: {', '.join(entry['tags'])}")
 
     # Step 3: Retrieve a specific segment
@@ -245,9 +309,10 @@ def main():
     llm = LLM(LLMConfig(
         model=MODEL,
         api_key=API_KEY,
-        temperature=TEMPERATURE
+        temperature=TEMPERATURE,
+        max_tokens=16384  # Ensure enough tokens for full JSON response with 12+ passages
     ))
-    print(f"        ✓ LLM configured: {MODEL} (temp={TEMPERATURE})")
+    print(f"        ✓ LLM configured: {MODEL} (temp={TEMPERATURE}, max_tokens=16384)")
 
     prompt_maker = PromptMaker()
     print(f"        ✓ PromptMaker ready")
@@ -278,19 +343,23 @@ def main():
         # PHASE 2: STORAGE
         # ====================================================================
         print("\n" + "="*60)
-        print("PHASE 2: STORE SEGMENTS IN CATALOG")
+        print("PHASE 2: STORE PASSAGES IN CATALOG")
         print("="*60)
-        print(f"\nStoring {len(analysis.segments)} identified segments...")
+        print(f"\nStoring {len(analysis.passages)} identified passages...")
+
+        # Get chapter text for passage location
+        chapter_segment = sampler.get_paragraph_chunk(FILE_INDEX, chapter_range)
 
         segment_ids = store_segments(
             store=store,
             sampler=sampler,
             analysis=analysis,
             file_index=FILE_INDEX,
+            chapter_text=chapter_segment.text,
             base_paragraph_offset=chapter_range.start
         )
 
-        print(f"\n✓ Successfully stored {len(segment_ids)} segments")
+        print(f"\n✓ Successfully stored {len(segment_ids)} passages")
         print(f"  First: {segment_ids[0]}")
         print(f"  Last:  {segment_ids[-1]}")
 

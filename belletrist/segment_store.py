@@ -26,8 +26,8 @@ class SegmentRecord:
     paragraph_end: int
     file_name: str
     text: str
-    functional_description: str
-    formal_description: str
+    craft_move: str
+    teaching_note: str
     tags: List[str]
     created_at: str
     source: str
@@ -59,8 +59,8 @@ class SegmentRecord:
             'paragraph_end': self.paragraph_end,
             'file_name': self.file_name,
             'text': self.text,
-            'functional_description': self.functional_description,
-            'formal_description': self.formal_description,
+            'craft_move': self.craft_move,
+            'teaching_note': self.teaching_note,
             'tags': self.tags,
             'created_at': self.created_at,
             'source': self.source
@@ -87,9 +87,9 @@ class SegmentStore:
             # Save segment
             seg_id = store.save_segment(
                 text_segment=segment,
-                functional_description="Defines concept clearly",
-                formal_description="Topic sentence + examples + conclusion",
-                tags=["clear_definition", "pedagogical"]
+                craft_move="concessive_opening",
+                teaching_note="Notice how the author grants ground before pivoting...",
+                tags=["opens_argument", "concessive_structure", "balanced_judgment"]
             )
 
             # Browse catalog
@@ -123,8 +123,8 @@ class SegmentStore:
                 paragraph_end INTEGER NOT NULL,
                 file_name TEXT NOT NULL,
                 text TEXT NOT NULL,
-                functional_description TEXT NOT NULL,
-                formal_description TEXT NOT NULL,
+                craft_move TEXT NOT NULL,
+                teaching_note TEXT NOT NULL,
                 tags TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 source TEXT DEFAULT 'llm_analysis'
@@ -155,8 +155,8 @@ class SegmentStore:
     def save_segment(
         self,
         text_segment: TextSegment,
-        functional_description: str,
-        formal_description: str,
+        craft_move: str,
+        teaching_note: str,
         tags: List[str],
         source: str = "llm_analysis"
     ) -> str:
@@ -164,9 +164,9 @@ class SegmentStore:
 
         Args:
             text_segment: TextSegment with provenance from DataSampler
-            functional_description: What the text accomplishes (function)
-            formal_description: How the text is structured (form)
-            tags: List of descriptive tags (form/function focus)
+            craft_move: Short label for the craft technique demonstrated (e.g., "concessive_pivot")
+            teaching_note: Explanation of what makes this passage exemplary (2-4 sentences)
+            tags: List of descriptive tags for retrieval (form/function focus)
             source: How this segment was identified (default: "llm_analysis")
 
         Returns:
@@ -176,9 +176,9 @@ class SegmentStore:
             segment = sampler.get_paragraph_chunk(0, slice(10, 15))
             seg_id = store.save_segment(
                 text_segment=segment,
-                functional_description="Introduces counterargument via rhetorical question",
-                formal_description="Second-person address, short question + long rebuttal",
-                tags=["counterargument", "rhetorical_question", "dialectical"]
+                craft_move="concessive_opening",
+                teaching_note="Notice how Russell opens by granting ground before pivoting...",
+                tags=["opens_argument", "handles_predecessors", "concessive_structure"]
             )
         """
         segment_id = self._generate_segment_id()
@@ -187,7 +187,7 @@ class SegmentStore:
         cursor.execute("""
             INSERT INTO segments (
                 segment_id, file_index, paragraph_start, paragraph_end,
-                file_name, text, functional_description, formal_description,
+                file_name, text, craft_move, teaching_note,
                 tags, source
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -197,8 +197,8 @@ class SegmentStore:
             text_segment.paragraph_end,
             text_segment.file_path.name,
             text_segment.text,
-            functional_description,
-            formal_description,
+            craft_move,
+            teaching_note,
             json.dumps(tags),  # Serialize tags as JSON
             source
         ))
@@ -218,7 +218,8 @@ class SegmentStore:
         Example:
             record = store.get_segment("seg_003")
             if record:
-                print(record.functional_description)
+                print(record.craft_move)
+                print(record.teaching_note)
                 print(record.text)
         """
         cursor = self.conn.cursor()
@@ -315,14 +316,15 @@ class SegmentStore:
             file_index: Filter by file_index if provided
 
         Returns:
-            List of summary dicts with: segment_id, file_name, functional_description,
-            formal_description, tags, paragraph_range
+            List of summary dicts with: segment_id, file_name, craft_move,
+            teaching_note, tags, paragraph_range
 
         Example:
             # Browse first 5 segments
             catalog = store.browse_catalog(limit=5)
             for entry in catalog:
-                print(f"{entry['segment_id']}: {entry['functional_description']}")
+                print(f"{entry['segment_id']}: {entry['craft_move']}")
+                print(f"  {entry['teaching_note']}")
                 print(f"  Tags: {', '.join(entry['tags'])}")
 
             # Browse only segments from file 2
@@ -346,8 +348,8 @@ class SegmentStore:
             summaries.append({
                 'segment_id': row['segment_id'],
                 'file_name': row['file_name'],
-                'functional_description': row['functional_description'],
-                'formal_description': row['formal_description'],
+                'craft_move': row['craft_move'],
+                'teaching_note': row['teaching_note'],
                 'tags': json.loads(row['tags']),
                 'paragraph_range': f"{row['paragraph_start']}-{row['paragraph_end']}"
             })
@@ -370,8 +372,8 @@ class SegmentStore:
             paragraph_end=row['paragraph_end'],
             file_name=row['file_name'],
             text=row['text'],
-            functional_description=row['functional_description'],
-            formal_description=row['formal_description'],
+            craft_move=row['craft_move'],
+            teaching_note=row['teaching_note'],
             tags=json.loads(row['tags']),
             created_at=row['created_at'],
             source=row['source']
