@@ -3,4 +3,9 @@ from belletrist.prompts.prompt_models import (
     ExemplarySegment,
     ExemplarySegmentAnalysis,
     ExemplarySegmentAnalysisConfig,
+    # Style Rewriting Models
+    ParagraphPlan,
+    StyleRewritePlan,
+    StyleRewritePlannerConfig,
+    StyledRewriteConfig,
 )

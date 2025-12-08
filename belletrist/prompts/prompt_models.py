@@ -4,7 +4,7 @@ Pydantic models for prompt templates.
 Each model corresponds to a Jinja template in the prompts/ directory,
 providing type-safe validation and clear documentation of required variables.
 """
-from typing import List
+from typing import List, Dict, Literal
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, field_validator
 
@@ -776,3 +776,115 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
     @classmethod
     def template_name(cls) -> str:
         return "exemplary_segment_analysis"
+
+
+# =============================================================================
+# Style Rewriting: Planning and Execution Models
+# =============================================================================
+
+class ParagraphPlan(BaseModel):
+    """Plan for rewriting a single paragraph.
+
+    Contains the original text, its rhetorical function, and craft move guidance
+    for stylistic rewriting.
+    """
+    paragraph_id: int = Field(..., ge=0, description="Paragraph index (0-based)")
+    original_text: str = Field(..., min_length=10, description="Original paragraph text")
+    function: str = Field(
+        ..., min_length=10, max_length=200,
+        description="Rhetorical function (e.g., 'introduces_concept', 'counterargument', 'conclusion')"
+    )
+    craft_move: str = Field(
+        ..., min_length=3, max_length=50,
+        description="Primary craft move to apply (e.g., 'concessive_opening', 'parallel_structure')"
+    )
+    craft_tags: List[str] = Field(
+        ..., min_length=1, max_length=4,
+        description="Tags for retrieving relevant examples from catalog (1-4 tags)"
+    )
+    guidance: str = Field(
+        ..., min_length=20, max_length=300,
+        description="Brief instruction on how to apply the craft move (2-3 sentences)"
+    )
+
+    @field_validator('craft_move')
+    @classmethod
+    def normalize_craft_move(cls, v: str) -> str:
+        """Ensure craft_move uses underscores, is lowercase."""
+        return v.lower().strip().replace(' ', '_').replace('-', '_')
+
+    @field_validator('craft_tags')
+    @classmethod
+    def normalize_tags(cls, v: List[str]) -> List[str]:
+        """Ensure tags are lowercase with underscores, normalized."""
+        return [tag.lower().strip().replace(' ', '_').replace('-', '_') for tag in v]
+
+
+class StyleRewritePlan(BaseModel):
+    """Complete rewriting plan with paragraph-level guidance.
+
+    Output from planning agent that analyzes flattened text and prescribes
+    craft moves for each paragraph.
+    """
+    paragraphs: List[ParagraphPlan] = Field(
+        ..., min_length=1, max_length=50,
+        description="Paragraph-level rewriting plans (1-50 paragraphs)"
+    )
+    overall_strategy: str = Field(
+        ..., min_length=50, max_length=500,
+        description="High-level description of rewrite approach"
+    )
+    target_style: str = Field(
+        ..., min_length=10, max_length=200,
+        description="Description of target style characteristics"
+    )
+
+
+class StyleRewritePlannerConfig(BasePromptConfig):
+    """Configuration for style_rewrite_planner.jinja.
+
+    Planning agent analyzes flattened (style-sparse) text and creates a
+    paragraph-by-paragraph rewrite plan with craft move assignments.
+    """
+
+    flattened_text: str = Field(
+        ..., min_length=100,
+        description="Style-flattened input text to analyze"
+    )
+    available_tags: List[str] = Field(
+        ..., min_length=5,
+        description="Tags available in segment catalog (from list_all_tags())"
+    )
+    target_style_description: str = Field(
+        default="balanced, lucid, rhythmically varied",
+        description="Brief description of target style"
+    )
+    creative_latitude: Literal["conservative", "moderate", "aggressive"] = Field(
+        default="moderate",
+        description="How much creative freedom in suggesting craft moves"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "style_rewrite_planner"
+
+
+class StyledRewriteConfig(BasePromptConfig):
+    """Configuration for styled_rewrite.jinja.
+
+    Rewriting agent receives plan with retrieved examples and generates
+    styled output paragraph-by-paragraph.
+    """
+
+    plan: StyleRewritePlan = Field(
+        ...,
+        description="Complete rewriting plan from planning agent"
+    )
+    retrieved_examples: Dict[int, List[dict]] = Field(
+        ...,
+        description="Map of paragraph_id → list of retrieved example dicts"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "styled_rewrite"

@@ -1,0 +1,66 @@
+You are rewriting text with enhanced style, guided by a structured plan and exemplary passages.
+
+## Overall Strategy
+
+{{ plan.overall_strategy }}
+
+Target Style: {{ plan.target_style }}
+
+## Instructions
+
+Rewrite the text paragraph-by-paragraph, applying the specified craft moves using the provided examples as stylistic guides.
+
+**Important:**
+- Preserve the original argument structure and content
+- Use examples to understand HOW to apply techniques, not WHAT to say
+- Maintain logical flow and transitions between paragraphs
+- Apply craft moves naturally, not mechanically
+
+---
+
+{% for paragraph_plan in plan.paragraphs %}
+## PARAGRAPH {{ paragraph_plan.paragraph_id + 1 }} / {{ plan.paragraphs|length }}
+
+**Original Text:**
+{{ paragraph_plan.original_text }}
+
+**Function:** {{ paragraph_plan.function }}
+
+**Craft Move:** {{ paragraph_plan.craft_move }}
+
+**Guidance:** {{ paragraph_plan.guidance }}
+
+**Examples to Guide Your Rewriting:**
+
+{% if paragraph_plan.paragraph_id in retrieved_examples %}
+{% for example in retrieved_examples[paragraph_plan.paragraph_id] %}
+
+---
+### Example {{ loop.index }}
+
+**Craft Move:** {{ example.craft_move }}
+**Teaching Note:** {{ example.teaching_note }}
+**Tags:** {{ example.tags|join(", ") }}
+
+**Text:**
+{{ example.text }}
+
+---
+{% endfor %}
+{% else %}
+*(No examples retrieved for this paragraph)*
+{% endif %}
+
+---
+{% endfor %}
+
+## Your Task
+
+Rewrite the complete text, applying the craft moves paragraph-by-paragraph. Output only the rewritten text, maintaining paragraph structure.
+
+**Do not include:**
+- Explanations of changes
+- Meta-commentary
+- Section labels
+
+**Just provide the rewritten text.**
