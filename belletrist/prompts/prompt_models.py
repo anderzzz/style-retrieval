@@ -772,6 +772,10 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
         None,
         description="Optional: Brief description of chapter content/theme"
     )
+    existing_tags: List[str] = Field(
+        default_factory=list,
+        description="Tags already in catalog (encourages reuse for consistency)"
+    )
 
     @classmethod
     def template_name(cls) -> str:

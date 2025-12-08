@@ -58,6 +58,21 @@ Identify {{ num_segments }} passages that would serve as excellent craft demonst
    - Structural tags (what the passage does): e.g., "introduces_topic", "handles_objection", "builds_definition"
    - Technique tags (how it does it): e.g., "parallel_structure", "ascending_complexity", "ironic_deflation"
 
+{% if existing_tags %}
+## Existing Tags in Catalog
+
+For consistency, please **reuse existing tags when appropriate** rather than creating similar variants:
+
+{% for tag in existing_tags[:40] %}
+- {{ tag }}
+{% endfor %}
+{% if existing_tags|length > 40 %}
+... and {{ existing_tags|length - 40 }} more
+{% endif %}
+
+**Important**: You can still create new tags if you identify craft moves not covered by the existing vocabulary, but prefer reuse when the existing tag accurately describes what you're identifying.
+{% endif %}
+
 ## Output Format
 ```json
 {

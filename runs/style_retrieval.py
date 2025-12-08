@@ -61,7 +61,8 @@ def analyze_chapter(
     llm: LLM,
     prompt_maker: PromptMaker,
     file_index: int,
-    paragraph_range: slice
+    paragraph_range: slice,
+    existing_tags: List[str] = None
 ) -> ExemplarySegmentAnalysis:
     """Analyze a chapter to identify exemplary segments.
 
@@ -71,6 +72,7 @@ def analyze_chapter(
         prompt_maker: PromptMaker for template rendering
         file_index: File to analyze
         paragraph_range: Chapter range (e.g., slice(0, 50))
+        existing_tags: Tags already in catalog (encourages reuse for consistency)
 
     Returns:
         ExemplarySegmentAnalysis with identified segments
@@ -88,8 +90,12 @@ def analyze_chapter(
     config = ExemplarySegmentAnalysisConfig(
         chapter_text=chapter_segment.text,
         file_name=chapter_segment.file_path.name,
-        num_segments=5  # Request 12 passages
+        num_segments=5,  # Request 5 passages
+        existing_tags=existing_tags or []  # Pass existing tags for consistency
     )
+
+    if existing_tags:
+        print(f"      Encouraging reuse of {len(existing_tags)} existing tags")
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
 
@@ -329,6 +335,16 @@ def main():
         print("PHASE 1: ANALYZE CHAPTER FOR EXEMPLARY SEGMENTS")
         print("="*60)
 
+        # Get existing tags for consistency (if any)
+        existing_tags_dict = store.list_all_tags()
+        existing_tags = list(existing_tags_dict.keys()) if existing_tags_dict else []
+
+        if existing_tags:
+            print(f"\nCatalog currently contains {len(existing_tags)} unique tags")
+            print(f"Will encourage reuse for consistency")
+        else:
+            print("\nCatalog is empty - this will establish the initial tag vocabulary")
+
         chapter_range = slice(CHAPTER_START, CHAPTER_END)
 
         analysis = analyze_chapter(
@@ -336,7 +352,8 @@ def main():
             llm=llm,
             prompt_maker=prompt_maker,
             file_index=FILE_INDEX,
-            paragraph_range=chapter_range
+            paragraph_range=chapter_range,
+            existing_tags=existing_tags
         )
 
         # ====================================================================
