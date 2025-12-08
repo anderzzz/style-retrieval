@@ -2,7 +2,7 @@
 Style Retrieval: Segment catalog building and retrieval workflow.
 
 This script demonstrates:
-1. Loading a chapter via DataSampler
+1. Loading chapters via DataSampler
 2. Analyzing with LLM to identify exemplary segments
 3. Storing segments in SegmentStore
 4. Retrieving segments via catalog browsing
@@ -11,15 +11,41 @@ Follows the Anthropic skills pattern: agents browse catalog, choose what to retr
 
 USAGE:
     1. Set configuration parameters below (API key, model, data paths, etc.)
-    2. Run: python runs/style_retrieval.py
-    3. Monitor output as workflow progresses
+    2. Define chapters in chapters_config.yaml
+    3. Run: python runs/style_retrieval.py
+    4. Monitor output as workflow progresses
 """
 import os
+import yaml
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 from belletrist import LLM, LLMConfig, PromptMaker, DataSampler, SegmentStore
 from belletrist.prompts import ExemplarySegmentAnalysisConfig, ExemplarySegmentAnalysis
+
+
+# ============================================================================
+# CHAPTER CONFIGURATION MODEL
+# ============================================================================
+
+class ChapterConfig(BaseModel):
+    """Configuration for a single chapter to analyze."""
+    file_index: int = Field(..., ge=0, description="Index of file in data directory")
+    paragraph_start: int = Field(..., ge=0, description="Starting paragraph (inclusive)")
+    paragraph_end: int = Field(..., gt=0, description="Ending paragraph (exclusive)")
+    description: str = Field(..., min_length=1, description="Human-readable chapter description")
+    enabled: bool = Field(default=True, description="Whether to process this chapter")
+
+    @property
+    def paragraph_range(self) -> slice:
+        """Convert to slice for DataSampler."""
+        return slice(self.paragraph_start, self.paragraph_end)
+
+
+class ChaptersConfig(BaseModel):
+    """Root configuration containing all chapters."""
+    chapters: List[ChapterConfig] = Field(..., min_items=1)
 
 
 # ============================================================================
@@ -42,18 +68,78 @@ MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
 # Data Paths
 DATA_PATH = Path(__file__).parent.parent / "data" / "russell"
 DB_PATH = Path(__file__).parent.parent / "segments.db"
+CHAPTERS_CONFIG_PATH = Path(__file__).parent.parent / "chapters_config.yaml"
 
 # Analysis Parameters
-FILE_INDEX = 0  # Which file to analyze (0 = first file)
-CHAPTER_START = 9  # Starting paragraph
-CHAPTER_END = 41  # Ending paragraph (first ~50 paragraphs)
 TEMPERATURE = 0.7  # LLM temperature for segment selection
+
+# Processing Control
+SKIP_EXISTING_CHAPTERS = True  # Skip chapters that have already been processed
+                               # Set to False to reprocess all chapters
 
 # Catalog Browsing
 CATALOG_PREVIEW_LIMIT = 5  # Number of segments to show in browse demo
 TAG_PREVIEW_LIMIT = 10  # Number of tags to show in tag list
 
 # ============================================================================
+
+
+def load_chapters_config(config_path: Path) -> ChaptersConfig:
+    """Load and validate chapters configuration from YAML file.
+
+    Args:
+        config_path: Path to chapters_config.yaml
+
+    Returns:
+        Validated ChaptersConfig with list of chapters
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        ValueError: If YAML is invalid or validation fails
+    """
+    if not config_path.exists():
+        raise FileNotFoundError(
+            f"Chapters configuration not found: {config_path}\n"
+            f"Please create chapters_config.yaml with chapter definitions."
+        )
+
+    with open(config_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+    try:
+        config = ChaptersConfig(**data)
+    except Exception as e:
+        raise ValueError(f"Invalid chapters configuration: {e}")
+
+    return config
+
+
+def chapter_already_processed(
+    store: SegmentStore,
+    chapter: ChapterConfig
+) -> bool:
+    """Check if a chapter has already been processed.
+
+    Args:
+        store: SegmentStore to query
+        chapter: ChapterConfig to check
+
+    Returns:
+        True if segments exist for this chapter's paragraph range
+    """
+    # Query database for segments matching this file and paragraph range
+    cursor = store.conn.cursor()
+    cursor.execute(
+        """
+        SELECT COUNT(*) FROM segments
+        WHERE file_index = ?
+        AND paragraph_start >= ?
+        AND paragraph_end <= ?
+        """,
+        (chapter.file_index, chapter.paragraph_start, chapter.paragraph_end)
+    )
+    count = cursor.fetchone()[0]
+    return count > 0
 
 
 def analyze_chapter(
@@ -287,7 +373,7 @@ def main():
 
     # Validate configuration
     print("="*60)
-    print("STYLE RETRIEVAL WORKFLOW")
+    print("STYLE RETRIEVAL WORKFLOW - MULTI-CHAPTER")
     print("="*60)
     print("\n[Setup] Validating configuration...")
 
@@ -302,10 +388,20 @@ def main():
             f"Please ensure your data files are in the correct location."
         )
 
-    print(f"        Model: {MODEL}")
+    # Load chapters configuration
+    print(f"\n[Setup] Loading chapters configuration from: {CHAPTERS_CONFIG_PATH}")
+    chapters_config = load_chapters_config(CHAPTERS_CONFIG_PATH)
+
+    enabled_chapters = [ch for ch in chapters_config.chapters if ch.enabled]
+    total_chapters = len(enabled_chapters)
+
+    print(f"        ✓ Loaded {total_chapters} enabled chapters")
+    print(f"        (Skipping {len(chapters_config.chapters) - total_chapters} disabled chapters)")
+
+    print(f"\n        Model: {MODEL}")
     print(f"        Data: {DATA_PATH}")
     print(f"        Database: {DB_PATH}")
-    print(f"        Target: File {FILE_INDEX}, paragraphs {CHAPTER_START}-{CHAPTER_END}")
+    print(f"        Chapters to process: {total_chapters}")
 
     # Initialize components
     print("\n[Setup] Initializing components...")
@@ -328,71 +424,127 @@ def main():
     with SegmentStore(DB_PATH) as store:
         print(f"        ✓ SegmentStore connected")
 
+        # Track overall progress
+        all_segment_ids = []
+        processed_count = 0
+        skipped_count = 0
+        failed_chapters = []
+
         # ====================================================================
-        # PHASE 1: ANALYSIS
+        # PHASE 1 & 2: LOOP OVER CHAPTERS - ANALYZE AND STORE
         # ====================================================================
         print("\n" + "="*60)
-        print("PHASE 1: ANALYZE CHAPTER FOR EXEMPLARY SEGMENTS")
+        print("PROCESSING CHAPTERS")
         print("="*60)
-
-        # Get existing tags for consistency (if any)
-        existing_tags_dict = store.list_all_tags()
-        existing_tags = list(existing_tags_dict.keys()) if existing_tags_dict else []
-
-        if existing_tags:
-            print(f"\nCatalog currently contains {len(existing_tags)} unique tags")
-            print(f"Will encourage reuse for consistency")
+        if SKIP_EXISTING_CHAPTERS:
+            print("Mode: Skip already-processed chapters")
         else:
-            print("\nCatalog is empty - this will establish the initial tag vocabulary")
+            print("Mode: Reprocess all chapters")
 
-        chapter_range = slice(CHAPTER_START, CHAPTER_END)
+        for chapter_idx, chapter in enumerate(enabled_chapters, 1):
+            print(f"\n{'='*60}")
+            print(f"CHAPTER {chapter_idx}/{total_chapters}: {chapter.description}")
+            print(f"{'='*60}")
+            print(f"File: {chapter.file_index}, Paragraphs: {chapter.paragraph_start}-{chapter.paragraph_end}")
 
-        analysis = analyze_chapter(
-            sampler=sampler,
-            llm=llm,
-            prompt_maker=prompt_maker,
-            file_index=FILE_INDEX,
-            paragraph_range=chapter_range,
-            existing_tags=existing_tags
-        )
+            # Check if chapter already processed (if enabled)
+            if SKIP_EXISTING_CHAPTERS and chapter_already_processed(store, chapter):
+                print(f"\n⏭ Skipping - chapter already processed (SKIP_EXISTING_CHAPTERS=True)")
+                skipped_count += 1
+                continue
 
-        # ====================================================================
-        # PHASE 2: STORAGE
-        # ====================================================================
-        print("\n" + "="*60)
-        print("PHASE 2: STORE PASSAGES IN CATALOG")
-        print("="*60)
-        print(f"\nStoring {len(analysis.passages)} identified passages...")
+            try:
+                # Get existing tags for consistency (updated each iteration)
+                existing_tags_dict = store.list_all_tags()
+                existing_tags = list(existing_tags_dict.keys()) if existing_tags_dict else []
 
-        # Get chapter text for passage location
-        chapter_segment = sampler.get_paragraph_chunk(FILE_INDEX, chapter_range)
+                if chapter_idx == 1:
+                    if existing_tags:
+                        print(f"\nCatalog currently contains {len(existing_tags)} unique tags")
+                        print(f"Will encourage reuse for consistency")
+                    else:
+                        print("\nCatalog is empty - this will establish the initial tag vocabulary")
+                else:
+                    print(f"\nCatalog now contains {len(existing_tags)} unique tags")
 
-        segment_ids = store_segments(
-            store=store,
-            sampler=sampler,
-            analysis=analysis,
-            file_index=FILE_INDEX,
-            chapter_text=chapter_segment.text,
-            base_paragraph_offset=chapter_range.start
-        )
+                # ANALYSIS
+                print("\n[PHASE 1] Analyzing chapter for exemplary segments...")
+                analysis = analyze_chapter(
+                    sampler=sampler,
+                    llm=llm,
+                    prompt_maker=prompt_maker,
+                    file_index=chapter.file_index,
+                    paragraph_range=chapter.paragraph_range,
+                    existing_tags=existing_tags
+                )
 
-        print(f"\n✓ Successfully stored {len(segment_ids)} passages")
-        print(f"  First: {segment_ids[0]}")
-        print(f"  Last:  {segment_ids[-1]}")
+                # STORAGE
+                print("\n[PHASE 2] Storing passages in catalog...")
+                print(f"Storing {len(analysis.passages)} identified passages...")
+
+                # Get chapter text for passage location
+                chapter_segment = sampler.get_paragraph_chunk(
+                    chapter.file_index,
+                    chapter.paragraph_range
+                )
+
+                segment_ids = store_segments(
+                    store=store,
+                    sampler=sampler,
+                    analysis=analysis,
+                    file_index=chapter.file_index,
+                    chapter_text=chapter_segment.text,
+                    base_paragraph_offset=chapter.paragraph_start
+                )
+
+                all_segment_ids.extend(segment_ids)
+                processed_count += 1
+
+                print(f"\n✓ Chapter {chapter_idx} complete: {len(segment_ids)} passages stored")
+                print(f"  Progress: {processed_count}/{total_chapters} chapters processed")
+
+            except Exception as e:
+                print(f"\n✗ ERROR processing chapter {chapter_idx}: {e}")
+                failed_chapters.append((chapter_idx, chapter.description, str(e)))
+                print(f"  Continuing with next chapter...")
+                continue
+
+        # Summary of processing
+        print(f"\n{'='*60}")
+        print(f"CHAPTER PROCESSING COMPLETE")
+        print(f"{'='*60}")
+        print(f"Successfully processed: {processed_count}/{total_chapters} chapters")
+        if skipped_count > 0:
+            print(f"Skipped (already processed): {skipped_count} chapters")
+        print(f"Total segments stored (this run): {len(all_segment_ids)}")
+
+        if failed_chapters:
+            print(f"\nFailed chapters ({len(failed_chapters)}):")
+            for idx, desc, error in failed_chapters:
+                print(f"  - Chapter {idx} ({desc}): {error}")
+        elif processed_count > 0:
+            print("\n✓ All processed chapters completed successfully!")
+
+        if skipped_count == total_chapters:
+            print("\n⏭ All chapters were already processed - no new segments added")
+            print("  Set SKIP_EXISTING_CHAPTERS=False to reprocess")
 
         # ====================================================================
         # PHASE 3: RETRIEVAL DEMO
         # ====================================================================
-        print("\n" + "="*60)
-        print("PHASE 3: DEMONSTRATE CATALOG RETRIEVAL")
-        print("="*60)
+        if all_segment_ids:
+            print("\n" + "="*60)
+            print("PHASE 3: DEMONSTRATE CATALOG RETRIEVAL")
+            print("="*60)
 
-        browse_and_retrieve_example(
-            store=store,
-            sampler=sampler,
-            catalog_limit=CATALOG_PREVIEW_LIMIT,
-            tag_limit=TAG_PREVIEW_LIMIT
-        )
+            browse_and_retrieve_example(
+                store=store,
+                sampler=sampler,
+                catalog_limit=CATALOG_PREVIEW_LIMIT,
+                tag_limit=TAG_PREVIEW_LIMIT
+            )
+        else:
+            print("\n⚠ No segments stored - skipping retrieval demo")
 
     # ====================================================================
     # COMPLETION
@@ -401,7 +553,25 @@ def main():
     print("WORKFLOW COMPLETE")
     print("="*60)
     print(f"\nSegment catalog saved to: {DB_PATH}")
-    print(f"Total segments stored: {len(segment_ids)}")
+    print(f"\nThis run:")
+    print(f"  Chapters processed: {processed_count}/{total_chapters}")
+    if skipped_count > 0:
+        print(f"  Chapters skipped: {skipped_count}")
+    print(f"  New segments stored: {len(all_segment_ids)}")
+
+    if all_segment_ids:
+        print(f"    First: {all_segment_ids[0]}")
+        print(f"    Last:  {all_segment_ids[-1]}")
+
+    # Show total catalog size
+    with SegmentStore(DB_PATH) as store:
+        total_in_catalog = store.get_count()
+        total_tags = len(store.list_all_tags())
+
+    print(f"\nCatalog totals:")
+    print(f"  Total segments: {total_in_catalog}")
+    print(f"  Unique tags: {total_tags}")
+
     print("\nNext steps - agents can now:")
     print("  • store.list_all_tags() → discover available categories")
     print("  • store.browse_catalog() → read segment descriptions")

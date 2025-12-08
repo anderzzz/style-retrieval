@@ -1,0 +1,42 @@
+# Chapter Configuration for Style Retrieval
+# Each chapter defines a segment of text to analyze for exemplary passages
+#
+# Fields:
+#   file_index: Index of the file in the data directory (0-based)
+#   paragraph_start: Starting paragraph number (inclusive)
+#   paragraph_end: Ending paragraph number (exclusive)
+#   description: Human-readable description for tracking progress
+#   enabled: Set to false to skip this chapter (default: true)
+
+chapters:
+  - file_index: 0
+    paragraph_start: 9
+    paragraph_end: 41
+    description: "Chapter 1: Opening section"
+    enabled: true
+
+  - file_index: 0
+    paragraph_start: 41
+    paragraph_end: 75
+    description: "Chapter 2: Development section"
+    enabled: true
+
+  - file_index: 0
+    paragraph_start: 75
+    paragraph_end: 110
+    description: "Chapter 3: Middle section"
+    enabled: true
+
+  # Example with disabled chapter (will be skipped)
+  # - file_index: 0
+  #   paragraph_start: 110
+  #   paragraph_end: 145
+  #   description: "Chapter 4: Later section"
+  #   enabled: false
+
+  # Example from a different file
+  # - file_index: 1
+  #   paragraph_start: 0
+  #   paragraph_end: 50
+  #   description: "Second book - Chapter 1"
+  #   enabled: true
