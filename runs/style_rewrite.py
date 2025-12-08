@@ -33,11 +33,12 @@ from belletrist.segment_store import SegmentRecord
 # ============================================================================
 
 # API Configuration
-API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
-MODEL = "claude-3-5-sonnet-20241022"
+API_KEY = os.environ.get('MISTRAL_API_KEY', '')
+#API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')  # or set directly: "sk-..."
+MODEL = "mistral/mistral-large-2512"
+#MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
 
 # Alternative examples:
-# API_KEY = os.environ.get('OPENAI_API_KEY', '')
 # MODEL = "gpt-4o"
 #
 # API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')
@@ -59,6 +60,7 @@ MAX_TOKENS_REWRITING = 8192
 NUM_EXAMPLES_PER_PARAGRAPH = 3
 TARGET_STYLE = "balanced, lucid, rhythmically varied with concessive structure"
 CREATIVE_LATITUDE = "moderate"  # "conservative", "moderate", or "aggressive"
+MAX_TAGS_TO_SHOW = 50  # Maximum tags to show in planning prompt (0 = show all)
 
 # Input Text (flattened/style-sparse)
 INPUT_TEXT = """
@@ -79,8 +81,8 @@ def plan_rewrite(
     available_tags: List[str],
     llm: LLM,
     prompt_maker: PromptMaker,
-    target_style: str = "balanced, lucid, rhythmically varied",
-    creative_latitude: str = "moderate"
+    creative_latitude: str = "moderate",
+    max_tags_to_show: int = 50
 ) -> StyleRewritePlan:
     """Phase 1: Planning agent analyzes text and creates rewrite plan.
 
@@ -89,8 +91,8 @@ def plan_rewrite(
         available_tags: Tags from segment catalog
         llm: LLM instance
         prompt_maker: PromptMaker instance
-        target_style: Description of target style
         creative_latitude: "conservative", "moderate", or "aggressive"
+        max_tags_to_show: Maximum tags to show in prompt (0 = show all)
 
     Returns:
         StyleRewritePlan with paragraph-level guidance
@@ -101,22 +103,41 @@ def plan_rewrite(
     config = StyleRewritePlannerConfig(
         flattened_text=flattened_text,
         available_tags=available_tags,
-        target_style_description=target_style,
-        creative_latitude=creative_latitude
+        creative_latitude=creative_latitude,
+        max_tags_to_show=max_tags_to_show
     )
 
     # Render prompt
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
 
+    # Debug: Print prompt preview
+    if os.environ.get('DEBUG_PROMPTS'):
+        print(f"\n      Prompt preview (first 500 chars):")
+        print(f"      {prompt[:500]}...")
+        print()
+
     # Call LLM with schema
     print("      Calling LLM for structural analysis...")
-    response = llm.complete_with_schema(
-        prompt=prompt,
-        schema_model=StyleRewritePlan
-    )
+    try:
+        response = llm.complete_with_schema(
+            prompt=prompt,
+            schema_model=StyleRewritePlan,
+            system="You are a JSON API that returns structured data. Always respond with valid JSON matching the requested schema. Never include explanatory text.",
+            strict=False  # Some models (like Qwen) don't support strict schema mode
+        )
+    except ValueError as e:
+        # If schema validation fails, try to get raw response for debugging
+        print(f"\n      ✗ Schema validation failed!")
+        print(f"      Error: {str(e)[:200]}...")
+        print(f"\n      This might be a model-specific issue with {MODEL}")
+        print(f"      Try using a different model (e.g., GPT-4, Claude) or check the prompt template.")
+        raise
 
     plan: StyleRewritePlan = response.content
+
+    # Debug: print validation mode
+    print(f"      Schema validation mode: {response.schema_validation_mode}")
 
     print(f"      ✓ Plan complete!")
     print(f"      Identified {len(plan.paragraphs)} paragraphs")
@@ -283,6 +304,8 @@ def rewrite_with_style(
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
     print(f"      Paragraphs to rewrite: {len(plan.paragraphs)}")
 
+    print(f"AAA\n{prompt}")
+
     # Call LLM (text output, not schema)
     print("      Calling LLM for stylistic rewriting...")
     response = llm.complete(prompt)
@@ -372,8 +395,8 @@ def main():
             available_tags=available_tags,
             llm=planning_llm,
             prompt_maker=prompt_maker,
-            target_style=TARGET_STYLE,
-            creative_latitude=CREATIVE_LATITUDE
+            creative_latitude=CREATIVE_LATITUDE,
+            max_tags_to_show=MAX_TAGS_TO_SHOW
         )
 
         # Display plan summary

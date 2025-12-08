@@ -7,10 +7,6 @@ Analyze the following text and create a paragraph-by-paragraph rewriting plan. F
 2. What craft move would enhance it
 3. Tags to retrieve relevant examples from the catalog
 
-## Target Style
-
-{{ target_style_description }}
-
 ## Creative Latitude: {{ creative_latitude }}
 
 {% if creative_latitude == "conservative" %}
@@ -24,11 +20,17 @@ Propose bold stylistic enhancements. Prioritize rhetorical excellence.
 ## Available Craft Moves (Tags in Catalog)
 
 The segment catalog contains examples with these tags:
-{% for tag in available_tags[:30] %}
+{% if max_tags_to_show == 0 or available_tags|length <= max_tags_to_show %}
+{% for tag in available_tags %}
 - {{ tag }}
 {% endfor %}
-{% if available_tags|length > 30 %}
-... and {{ available_tags|length - 30 }} more
+{% else %}
+Top {{ max_tags_to_show }} most common tags ({{ available_tags|length }} total in catalog):
+{% for tag in available_tags[:max_tags_to_show] %}
+- {{ tag }}
+{% endfor %}
+
+Also available: {{ available_tags[max_tags_to_show:]|join(", ") }}
 {% endif %}
 
 **Important:** Only suggest craft moves that match available tags. Each paragraph should map to 1-4 tags.
@@ -73,7 +75,6 @@ Each paragraph plan should have:
     }
   ],
   "overall_strategy": "Rewrite as balanced philosophical exposition with concessive structure and rhythmic clarity",
-  "target_style": "Balanced, lucid, rhythmically varied with Russellian concessions"
 }
 ```
 
@@ -82,3 +83,7 @@ Each paragraph plan should have:
 - Each paragraph should have 1-4 tags maximum
 - Craft moves should be lowercase with underscores (e.g., "concessive_opening")
 - Provide specific, actionable guidance
+
+---
+
+Now analyze the text and return ONLY the JSON object following the format above. Do not include any explanatory text before or after the JSON. Begin your response with the opening brace `{` of the JSON object.

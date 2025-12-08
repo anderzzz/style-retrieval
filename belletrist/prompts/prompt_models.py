@@ -834,10 +834,6 @@ class StyleRewritePlan(BaseModel):
         ..., min_length=50, max_length=500,
         description="High-level description of rewrite approach"
     )
-    target_style: str = Field(
-        ..., min_length=10, max_length=200,
-        description="Description of target style characteristics"
-    )
 
 
 class StyleRewritePlannerConfig(BasePromptConfig):
@@ -862,6 +858,11 @@ class StyleRewritePlannerConfig(BasePromptConfig):
     creative_latitude: Literal["conservative", "moderate", "aggressive"] = Field(
         default="moderate",
         description="How much creative freedom in suggesting craft moves"
+    )
+    max_tags_to_show: int = Field(
+        default=50,
+        ge=10,
+        description="Maximum number of tags to show in prompt (0 = show all)"
     )
 
     @classmethod
