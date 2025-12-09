@@ -12,19 +12,61 @@ chapters:
   - file_index: 0
     paragraph_start: 9
     paragraph_end: 41
-    description: "Chapter 1: Opening section"
+    description: "Chapter 1: Postulates of Modern Educational Theory"
     enabled: true
 
   - file_index: 0
-    paragraph_start: 41
-    paragraph_end: 75
-    description: "Chapter 2: Development section"
+    paragraph_start: 43
+    paragraph_end: 83
+    description: "Chapter 2: The Aims of Education"
     enabled: true
 
   - file_index: 0
-    paragraph_start: 75
-    paragraph_end: 110
-    description: "Chapter 3: Middle section"
+    paragraph_start: 87
+    paragraph_end: 101
+    description: "Chapter 3: The First Year"
+    enabled: true
+
+  - file_index: 0
+    paragraph_start: 103
+    paragraph_end: 129
+    description: "Chapter 4: Fear"
+    enabled: true
+
+  - file_index: 1
+    paragraph_start: 3
+    paragraph_end: 50
+    description: "Chapter 0: Mysticism and Logic"
+    enabled: true
+
+  - file_index: 1
+    paragraph_start: 51
+    paragraph_end: 60
+    description: "Chapter 1: Reason and Intuition"
+    enabled: true
+
+  - file_index: 1
+    paragraph_start: 61
+    paragraph_end: 66
+    description: "Chapter 2: Unity and Plurality"
+    enabled: true
+
+  - file_index: 1
+    paragraph_start: 67
+    paragraph_end: 79
+    description: "Chapter 3: Time"
+    enabled: true
+
+  - file_index: 1
+    paragraph_start: 80
+    paragraph_end: 93
+    description: "Chapter 4: Good and Evil"
+    enabled: true
+
+  - file_index: 2
+    paragraph_start: 2
+    paragraph_end: 13
+    description: "Chapter 1: Touch and Sight: The Earth and Heavens"
     enabled: true
 
   # Example with disabled chapter (will be skipped)
