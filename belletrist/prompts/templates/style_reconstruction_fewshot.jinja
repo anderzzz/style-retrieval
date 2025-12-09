@@ -1,0 +1,28 @@
+You are given a content summary that captures the core ideas and arguments of a text, but stripped of stylistic elements.
+
+Your task is to expand this summary into a complete prose passage using a writing style similar to the examples below.
+
+**CRITICAL REQUIREMENTS:**
+- Match the STYLE of the examples (rhythm, vocabulary, tone, sentence structure), not their formatting choices.
+- If the examples are plain prose with no titles/headers/formatting, write plain prose.
+- Do NOT add meta-commentary, preambles like "Here is the passage...", or postscripts explaining your work.
+- Simply write naturally in this style.
+
+**EXAMPLE TEXTS (demonstrating the target style):**
+
+{% for example in few_shot_examples %}
+---
+
+{{ example }}
+
+{% endfor %}
+
+---
+
+**CONTENT TO EXPAND:**
+
+{{ content_summary }}
+
+---
+
+Write the prose passage directly, with no preamble or commentary:

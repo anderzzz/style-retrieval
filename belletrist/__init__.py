@@ -8,6 +8,7 @@ from belletrist.llm import LLM, ToolLLM, LLMConfig, Message, LLMResponse, LLMRol
 from belletrist.prompt_maker import PromptMaker
 from belletrist.data_sampler import DataSampler, TextSegment
 from belletrist.segment_store import SegmentStore, SegmentRecord
+from belletrist.style_evaluation_store import StyleEvaluationStore
 
 __all__ = [
     'LLM',
@@ -21,4 +22,5 @@ __all__ = [
     'TextSegment',
     'SegmentStore',
     'SegmentRecord',
+    'StyleEvaluationStore',
 ]

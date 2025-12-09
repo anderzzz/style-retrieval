@@ -8,4 +8,11 @@ from belletrist.prompts.prompt_models import (
     StyleRewritePlan,
     StyleRewritePlannerConfig,
     StyledRewriteConfig,
+    # Style Evaluation Models
+    StyleFlatteningConfig,
+    StyleReconstructionGenericConfig,
+    StyleReconstructionFewShotConfig,
+    StyleReconstructionAuthorConfig,
+    StyleReconstructionInstructionsConfig,
+    StyleJudgeComparativeConfig,
 )
