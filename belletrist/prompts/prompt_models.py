@@ -772,9 +772,13 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
         None,
         description="Optional: Brief description of chapter content/theme"
     )
-    existing_tags: List[str] = Field(
+    existing_tier2_tags: List[str] = Field(
         default_factory=list,
-        description="Tags already in catalog (encourages reuse for consistency)"
+        description="Author-specific tags already in catalog (Tier 2 only; canonical tags excluded)"
+    )
+    canonical_tags_formatted: List[dict] = Field(
+        default_factory=list,
+        description="Formatted canonical tags for template injection (auto-populated from canonical_tags.py)"
     )
 
     @classmethod
@@ -851,9 +855,13 @@ class StyleRewritePlannerConfig(BasePromptConfig):
         ..., min_length=100,
         description="Style-flattened input text to analyze"
     )
-    available_tags: List[str] = Field(
-        ..., min_length=5,
-        description="Tags available in segment catalog (from list_all_tags())"
+    tier2_tags: List[str] = Field(
+        default_factory=list,
+        description="Author-specific tags available in catalog (Tier 2 only; canonical tags excluded)"
+    )
+    canonical_tags_formatted: List[dict] = Field(
+        default_factory=list,
+        description="Formatted canonical tags for template injection (auto-populated from canonical_tags.py)"
     )
     target_style_description: str = Field(
         default="balanced, lucid, rhythmically varied",
@@ -862,11 +870,6 @@ class StyleRewritePlannerConfig(BasePromptConfig):
     creative_latitude: Literal["conservative", "moderate", "aggressive"] = Field(
         default="moderate",
         description="How much creative freedom in suggesting craft moves"
-    )
-    max_tags_to_show: int = Field(
-        default=50,
-        ge=10,
-        description="Maximum number of tags to show in prompt (0 = show all)"
     )
 
     @classmethod

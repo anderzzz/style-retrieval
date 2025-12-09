@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from belletrist import LLM, LLMConfig, PromptMaker, DataSampler, SegmentStore
 from belletrist.prompts import ExemplarySegmentAnalysisConfig, ExemplarySegmentAnalysis
+from belletrist.prompts.canonical_tags import get_all_canonical_tags, format_for_jinja
 
 
 # ============================================================================
@@ -148,7 +149,8 @@ def analyze_chapter(
     prompt_maker: PromptMaker,
     file_index: int,
     paragraph_range: slice,
-    existing_tags: List[str] = None
+    existing_tier2_tags: List[str] = None,
+    canonical_tags_formatted: List[dict] = None
 ) -> ExemplarySegmentAnalysis:
     """Analyze a chapter to identify exemplary segments.
 
@@ -158,7 +160,8 @@ def analyze_chapter(
         prompt_maker: PromptMaker for template rendering
         file_index: File to analyze
         paragraph_range: Chapter range (e.g., slice(0, 50))
-        existing_tags: Tags already in catalog (encourages reuse for consistency)
+        existing_tier2_tags: Author-specific tags already in catalog (Tier 2 only)
+        canonical_tags_formatted: Formatted canonical tags for template injection
 
     Returns:
         ExemplarySegmentAnalysis with identified segments
@@ -177,11 +180,12 @@ def analyze_chapter(
         chapter_text=chapter_segment.text,
         file_name=chapter_segment.file_path.name,
         num_segments=5,  # Request 5 passages
-        existing_tags=existing_tags or []  # Pass existing tags for consistency
+        existing_tier2_tags=existing_tier2_tags or [],  # Pass Tier 2 tags for consistency
+        canonical_tags_formatted=canonical_tags_formatted or []  # Pass canonical tags for injection
     )
 
-    if existing_tags:
-        print(f"      Encouraging reuse of {len(existing_tags)} existing tags")
+    if existing_tier2_tags:
+        print(f"      Encouraging reuse of {len(existing_tier2_tags)} existing Tier 2 tags")
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
 
@@ -454,18 +458,25 @@ def main():
                 continue
 
             try:
-                # Get existing tags for consistency (updated each iteration)
+                # Get existing tags and filter to Tier 2 only (updated each iteration)
                 existing_tags_dict = store.list_all_tags()
-                existing_tags = list(existing_tags_dict.keys()) if existing_tags_dict else []
+                all_tags = list(existing_tags_dict.keys()) if existing_tags_dict else []
+
+                # Filter out canonical tags to get only Tier 2
+                canonical_tag_set = get_all_canonical_tags()
+                existing_tier2_tags = [tag for tag in all_tags if tag not in canonical_tag_set]
+
+                # Get formatted canonical tags for template injection
+                canonical_tags_formatted = format_for_jinja()
 
                 if chapter_idx == 1:
-                    if existing_tags:
-                        print(f"\nCatalog currently contains {len(existing_tags)} unique tags")
+                    if existing_tier2_tags:
+                        print(f"\nCatalog contains {len(existing_tier2_tags)} author-specific tags (Tier 2)")
                         print(f"Will encourage reuse for consistency")
                     else:
-                        print("\nCatalog is empty - this will establish the initial tag vocabulary")
+                        print("\nNo Tier 2 tags yet - LLM will create author-specific vocabulary")
                 else:
-                    print(f"\nCatalog now contains {len(existing_tags)} unique tags")
+                    print(f"\nCatalog now contains {len(existing_tier2_tags)} author-specific tags (Tier 2)")
 
                 # ANALYSIS
                 print("\n[PHASE 1] Analyzing chapter for exemplary segments...")
@@ -475,7 +486,8 @@ def main():
                     prompt_maker=prompt_maker,
                     file_index=chapter.file_index,
                     paragraph_range=chapter.paragraph_range,
-                    existing_tags=existing_tags
+                    existing_tier2_tags=existing_tier2_tags,
+                    canonical_tags_formatted=canonical_tags_formatted
                 )
 
                 # STORAGE

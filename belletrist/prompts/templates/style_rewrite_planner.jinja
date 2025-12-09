@@ -2,88 +2,158 @@ You are a writing coach planning how to rewrite a piece of text with enhanced st
 
 ## Your Task
 
-Analyze the following text and create a paragraph-by-paragraph rewriting plan. For each paragraph, identify:
-1. Its rhetorical function (what it's trying to do)
-2. What craft move would enhance it
-3. Tags to retrieve relevant examples from the catalog
+Analyze the following text and create a paragraph-by-paragraph rewriting plan. For each paragraph, identify what craft moves would improve it, then select tags to retrieve relevant examples from the catalog.
+
+## How This Works
+
+You will select tags. Those tags will be used to retrieve exemplary passages demonstrating each craft move. A rewriting agent will then use those passages as few-shot examples to guide the actual rewrite.
+
+**Your tags are the bridge between diagnosis and demonstration.** Choose tags that will retrieve passages showing what you want the rewriter to do.
+
+---
 
 ## Creative Latitude: {{ creative_latitude }}
 
 {% if creative_latitude == "conservative" %}
-Apply style conservatively. Preserve existing structure, enhance clarity and flow.
+Apply style conservatively. Preserve existing structure; enhance clarity and flow. Only suggest craft moves that strengthen what's already there.
 {% elif creative_latitude == "moderate" %}
-Balance faithfulness with aesthetic improvement. Suggest craft moves that strengthen the argument without distorting intent.
+Balance faithfulness with improvement. Suggest craft moves that strengthen the argument and sharpen the prose without distorting intent.
 {% else %}
-Propose bold stylistic enhancements. Prioritize rhetorical excellence.
+Propose bold stylistic enhancements. Prioritize rhetorical power and distinctive voice. Restructure freely if it serves the writing.
 {% endif %}
 
-## Available Craft Moves (Tags in Catalog)
+---
 
-The segment catalog contains examples with these tags:
-{% if max_tags_to_show == 0 or available_tags|length <= max_tags_to_show %}
-{% for tag in available_tags %}
-- {{ tag }}
+## Available Tags (Two-Tier System)
+
+### Tier 1: Canonical Craft Tags
+
+These describe universal craft moves. Reliable for retrieval—most will have multiple examples.
+
+{% for category_data in canonical_tags_formatted %}
+**{{ category_data.category }}:**
+{% for tag, description in category_data.tags %}
+- `{{ tag }}` — {{ description }}
+{% endfor %}
+
+{% endfor %}
+
+### Tier 2: Author-Specific Tags
+
+These capture distinctive moves particular to the target style. May have fewer examples but offer finer texture.
+
+{% if tier2_tags %}
+Available Tier 2 tags:
+{% for tag in tier2_tags %}
+- `{{ tag }}`
 {% endfor %}
 {% else %}
-Top {{ max_tags_to_show }} most common tags ({{ available_tags|length }} total in catalog):
-{% for tag in available_tags[:max_tags_to_show] %}
-- {{ tag }}
-{% endfor %}
-
-Also available: {{ available_tags[max_tags_to_show:]|join(", ") }}
+(No author-specific tags available for this catalog)
 {% endif %}
 
-**Important:** Only suggest craft moves that match available tags. Each paragraph should map to 1-4 tags.
+---
+
+## Selecting Tags: A Thinking Framework
+
+Before assigning tags to a paragraph, ask:
+
+1. **What is this paragraph trying to DO?**
+   - Open/introduce? → Opening moves
+   - Develop/support? → Building moves
+   - Turn/transition? → Pivot moves
+   - Conclude/land? → Closing moves
+
+2. **What's currently WEAK about it?**
+   - Flat opening? → Consider `opens_with_scene`, `opens_with_question`
+   - Assertion without support? → Consider `builds_via_examples`, `builds_via_analogy`
+   - Abrupt transition? → Consider `pivots_with_but`, `pivots_via_question`
+   - Limp ending? → Consider `closes_with_short_sentence`, `closes_with_implication`
+
+3. **What TEXTURE would help?**
+   - Monotonous rhythm? → `varies_sentence_length`
+   - Too abstract? → `pairs_abstract_and_concrete`
+   - Feels hedgy? → `asserts_with_confidence`
+   - Feels dogmatic? → `acknowledges_complexity`, `embeds_qualification`
+
+4. **Is there a SIGNATURE move that fits?**
+   - Check Tier 2 tags for author-specific techniques that might elevate this paragraph
+
+---
 
 ## Text to Analyze
 
 {{ flattened_text }}
 
+---
+
 ## Instructions
 
-1. **Break into paragraphs**: Identify natural paragraph boundaries
-2. **Identify function**: What is each paragraph trying to accomplish?
-3. **Assign craft move**: What technique would enhance this paragraph? Use tags from the catalog.
-4. **Provide guidance**: Brief instruction on HOW to apply the craft move (2-3 sentences)
+1. **Identify paragraphs**: Find natural paragraph boundaries in the text
 
-## Output Format
+2. **Diagnose each paragraph**: What is it trying to do? What's weak or could be stronger?
 
-Return a JSON object with:
-- `paragraphs`: Array of paragraph plans
-- `overall_strategy`: High-level description of your rewriting approach
-- `target_style`: Characteristics of the target style
+3. **Prescribe craft moves**: What techniques would improve it? Select 1-3 tags that will retrieve helpful examples.
 
-Each paragraph plan should have:
-- `paragraph_id`: Index (0, 1, 2...)
-- `original_text`: The paragraph text
-- `function`: Its rhetorical purpose
-- `craft_move`: Primary technique to apply
-- `craft_tags`: 1-4 tags for retrieving examples
-- `guidance`: How to apply this craft move
-
-**Example:**
-```json
-{
-  "paragraphs": [
-    {
-      "paragraph_id": 0,
-      "original_text": "Democracy has flaws. It can be inefficient.",
-      "function": "Introduce topic with balanced acknowledgment",
-      "craft_move": "concessive_opening",
-      "craft_tags": ["concessive_opening", "balanced_judgment"],
-      "guidance": "Open by granting ground to critics before pivoting. Establish fairness and objectivity."
-    }
-  ],
-  "overall_strategy": "Rewrite as balanced philosophical exposition with concessive structure and rhythmic clarity",
-}
-```
-
-**Critical Rules:**
-- Only use tags that exist in the available catalog
-- Each paragraph should have 1-4 tags maximum
-- Craft moves should be lowercase with underscores (e.g., "concessive_opening")
-- Provide specific, actionable guidance
+4. **Write guidance**: Brief instruction (2-3 sentences) on HOW to apply the craft move—what specifically should change?
 
 ---
 
-Now analyze the text and return ONLY the JSON object following the format above. Do not include any explanatory text before or after the JSON. Begin your response with the opening brace `{` of the JSON object.
+## Output Format
+
+Return a JSON object:
+
+```json
+{
+  "overall_strategy": "High-level description of the rewriting approach—what's the main goal?",
+  "paragraphs": [
+    {
+      "paragraph_id": 0,
+      "original_text": "The paragraph text as it currently exists.",
+      "function": "What this paragraph is trying to accomplish",
+      "diagnosis": "What's currently weak or missing",
+      "craft_tags": ["tag_one", "tag_two"],
+      "guidance": "Specific instructions for the rewriter. What should change? How should the retrieved examples inform the rewrite?"
+    }
+  ]
+}
+```
+
+**Example:**
+
+```json
+{
+  "overall_strategy": "Transform flat expository prose into engaging philosophical argument. Strengthen openings, add concrete grounding, sharpen transitions.",
+  "paragraphs": [
+    {
+      "paragraph_id": 0,
+      "original_text": "Democracy has problems. It can be slow and inefficient. Sometimes the majority makes mistakes.",
+      "function": "Introduce topic by acknowledging democracy's flaws",
+      "diagnosis": "Opening is flat and list-like. No rhetorical shape—just statements. Needs a stronger hook and better build.",
+      "craft_tags": ["opens_with_concession", "builds_via_escalation"],
+      "guidance": "Open by genuinely granting the critic's strongest point, not just listing flaws. Then let each subsequent flaw feel weightier than the last. The retrieved examples will show how to make a concession feel generous rather than perfunctory."
+    },
+    {
+      "paragraph_id": 1,
+      "original_text": "But democracy also has strengths. It allows for self-correction. People can vote out bad leaders.",
+      "function": "Pivot to democracy's advantages",
+      "diagnosis": "The 'but' pivot is too weak—reads as throat-clearing. The strengths are asserted but not demonstrated.",
+      "craft_tags": ["pivots_with_but", "builds_via_examples", "pairs_abstract_and_concrete"],
+      "guidance": "Make the pivot emphatic—the 'but' should feel like a turn, not a wobble. Then ground 'self-correction' in a concrete instance. Retrieved examples will show how to make the abstract tangible."
+    }
+  ]
+}
+```
+
+---
+
+## Critical Rules
+
+- **Only use tags that exist** in Tier 1 or Tier 2 lists above
+- **1-3 tags per paragraph** — enough to guide retrieval, not so many that it's unfocused
+- **Be specific in guidance** — "make it better" is useless; "open with a concrete image before stating the principle" is useful
+- **Diagnosis before prescription** — identify what's weak before suggesting fixes
+- **Match ambition to latitude** — conservative latitude means subtle enhancement; aggressive means bold transformation
+
+---
+
+Return ONLY the JSON object. Do not include explanatory text before or after. Begin with `{`.

@@ -92,18 +92,16 @@ def _plan_rewrite(
     available_tags: List[str],
     llm: LLM,
     prompt_maker: PromptMaker,
-    creative_latitude: str = "moderate",
-    max_tags_to_show: int = 50
+    creative_latitude: str = "moderate"
 ) -> StyleRewritePlan:
     """Phase 1: Planning agent analyzes text and creates rewrite plan.
 
     Args:
         flattened_text: Style-sparse input text
-        available_tags: Tags from segment catalog
+        available_tags: All tags from segment catalog (will be filtered internally)
         llm: LLM instance (should use planning temperature ~0.5)
         prompt_maker: PromptMaker instance
         creative_latitude: "conservative", "moderate", or "aggressive"
-        max_tags_to_show: Maximum tags to show in prompt (0 = show all)
 
     Returns:
         StyleRewritePlan with paragraph-level guidance
@@ -111,12 +109,21 @@ def _plan_rewrite(
     Raises:
         ValueError: If schema validation fails
     """
+    from belletrist.prompts.canonical_tags import get_all_canonical_tags, format_for_jinja
+
+    # Filter out canonical tags to get only Tier 2
+    canonical_tag_set = get_all_canonical_tags()
+    tier2_tags = [tag for tag in available_tags if tag not in canonical_tag_set]
+
+    # Get formatted canonical tags for template injection
+    canonical_tags_formatted = format_for_jinja()
+
     # Create config
     config = StyleRewritePlannerConfig(
         flattened_text=flattened_text,
-        available_tags=available_tags,
-        creative_latitude=creative_latitude,
-        max_tags_to_show=max_tags_to_show
+        tier2_tags=tier2_tags,
+        canonical_tags_formatted=canonical_tags_formatted,
+        creative_latitude=creative_latitude
     )
 
     # Render prompt
@@ -230,7 +237,6 @@ def agent_rewrite(
     rewriting_llm: LLM,
     prompt_maker: PromptMaker,
     creative_latitude: str = "moderate",
-    max_tags_to_show: int = 50,
     num_examples_per_paragraph: int = 3
 ) -> str:
     """
@@ -248,7 +254,6 @@ def agent_rewrite(
         rewriting_llm: LLM instance for rewriting (recommended temp=0.7)
         prompt_maker: PromptMaker instance for template rendering
         creative_latitude: "conservative", "moderate", or "aggressive"
-        max_tags_to_show: Maximum tags to show in planning prompt (0 = show all)
         num_examples_per_paragraph: Number of examples to retrieve per paragraph
 
     Returns:
@@ -281,8 +286,7 @@ def agent_rewrite(
         available_tags=available_tags,
         llm=planning_llm,
         prompt_maker=prompt_maker,
-        creative_latitude=creative_latitude,
-        max_tags_to_show=max_tags_to_show
+        creative_latitude=creative_latitude
     )
 
     # Phase 2: Retrieval (silently)

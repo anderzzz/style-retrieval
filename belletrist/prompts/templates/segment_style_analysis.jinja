@@ -2,7 +2,9 @@ You are a master writing teacher assembling a craft anthology. Your task is to i
 
 ## The Goal
 
-These passages will be dynamically retrieved as few-shot examples when an AI agent is writing in this author's style. The agent will receive a passage along with its craft annotations, helping it understand not just WHAT to write but HOW this author constructs prose.
+These passages will be dynamically retrieved as few-shot examples when an AI agent is rewriting text in this author's style. A planning agent will see your tags (and only your tags) when deciding what craft moves to apply to weak paragraphs. It will then retrieve the actual passages to guide the rewrite.
+
+This means your tags must be **retrieval-ready**: a planner thinking "I need to make this opening more engaging" should be able to scan the tag list and find what it needs.
 
 ## What Makes a Passage Worth Including
 
@@ -10,7 +12,7 @@ A passage earns its place when it demonstrates a **teachable craft move**—some
 
 1. **Could I point to this passage and say "notice how the author..."?** If you can complete that sentence with something specific and replicable, it belongs.
 
-2. **Is the technique visible in the prose itself?** The passage should be self-evidently demonstrating what you claim it demonstrates.
+2. **Is the technique visible in the prose itself?** The passage should self-evidently demonstrate what you claim it demonstrates.
 
 3. **Would this help a writer trying to sound like this author?** Not generic good writing, but this author's particular moves.
 
@@ -40,80 +42,122 @@ A passage earns its place when it demonstrates a **teachable craft move**—some
 - How the author establishes authority or intimacy
 - Characteristic turns of phrase or syntactic fingerprints
 
+---
+
+## Two-Tier Tag System
+
+Tags are how the planning agent finds relevant examples. We use two tiers:
+
+### Tier 1: Canonical Craft Tags (Reuse These)
+
+These describe universal craft moves that recur across authors and texts. **Always check this list first.** If a passage fits a canonical tag, use it—this ensures reliable retrieval.
+
+{% for category_data in canonical_tags_formatted %}
+**{{ category_data.category }}:**
+{% for tag, description in category_data.tags %}
+- `{{ tag }}` — {{ description }}
+{% endfor %}
+
+{% endfor %}
+
+### Tier 2: Author-Specific Tags (Create as Needed)
+
+If a passage demonstrates something distinctive that canonical tags don't capture—especially signature moves of this particular author—create a precise new tag. These capture fine texture and authorial fingerprint.
+
+**Guidelines for Tier 2 tags:**
+- Make them self-explanatory (the planner has no context beyond the tag name)
+- Focus on technique + effect, not just technique: `stacks_rhetorical_questions_for_urgency` beats `uses_rhetorical_questions`
+- Be specific: `Anglo_Saxon_monosyllables_for_punch` captures something `word_choice` never could
+
+**Examples of good Tier 2 tags:**
+- `delayed_verb_for_suspense`
+- `parenthetical_asides_for_intimacy`
+- `technical_term_then_unpacks`
+- `mock_serious_tone`
+- `one_word_sentence_for_emphasis`
+
+---
+
+## Tagging Each Passage
+
+For each passage, assign:
+- **1-2 canonical tags** (Tier 1) — these ensure the passage is findable for common needs
+- **0-2 author-specific tags** (Tier 2) — these capture distinctive texture when relevant
+
+**The Retrieval Test:** Imagine a planner thinking "I need to [X]." Would it think to search for your tag?
+
+✓ `opens_with_concession` → "I need to acknowledge the counterargument first"
+✓ `closes_with_short_sentence` → "This ending feels flabby, I need punch"
+✓ `builds_via_escalation` → "I want each sentence to raise the stakes"
+✗ `sophisticated_structure` → No one thinks "I need sophisticated structure"
+✗ `characteristic_rhythm` → Rhythm for what purpose?
+
+---
+
 ## Chapter Text
 
 {{ chapter_text }}
 
+---
+
 ## Your Task
 
-Identify {{ num_segments }} passages that would serve as excellent craft demonstrations. For each:
+Identify **{{ num_segments }}** passages that would serve as excellent craft demonstrations. For each:
 
-1. **Extract the full passage** (include the complete text—do not rely on paragraph indices)
+1. **Extract the full passage** — include complete text; do not reference paragraph numbers
 
-2. **Craft Move Label**: A short, specific name for what this passage demonstrates (e.g., "concessive_pivot", "example_cascade", "definition_through_contrast", "rhythmic_clincher")
+2. **Craft Move Label** — a short, specific name for what this passage demonstrates (use the canonical tag name if applicable, otherwise create a descriptive label)
 
-3. **Teaching Note**: 2-4 sentences explaining what makes this passage exemplary. Write as if briefing another writing teacher: "Notice how the author..." Be specific enough that someone could attempt to replicate the technique.
+3. **Teaching Note** — 2-4 sentences explaining what makes this passage exemplary. Write as if briefing another writing teacher: "Notice how the author..." Be specific enough that someone could attempt to replicate the technique.
 
-4. **Tags**: 3-6 lowercase tags for retrieval. **CRITICAL CONSTRAINT**: These tags will be used by an AI planning agent that sees ONLY the tag name with no other context. The agent must be able to understand what each tag means from the name alone.
+4. **Tags** — 2-4 tags following the two-tier system:
+   - Include 1-2 canonical tags (Tier 1) when applicable
+   - Add 0-2 author-specific tags (Tier 2) for distinctive moves
+   - All tags lowercase with underscores
 
-   **Tag Design Principles:**
-   - **Self-explanatory**: The tag name should describe what the technique does or achieves (not just label it with jargon)
-   - **Functionally descriptive**: Focus on the action or outcome, not vague aesthetics
-   - **Style-focused**: Describe HOW the author writes, not WHAT they write about
+{% if existing_tier2_tags %}
+## Existing Author-Specific Tags (Tier 2)
 
-   **Good Tag Examples:**
-   - `opens_with_concession` (clear action)
-   - `builds_via_examples` (clear method)
-   - `short_sentence_punch` (clear technique + effect)
-   - `qualifies_without_hedging` (clear technique + outcome)
-   - `transitions_via_question` (clear structural function)
+These Tier 2 tags have been created from earlier chapters. **Reuse when they fit** rather than creating near-duplicates:
 
-   **Bad Tag Examples to AVOID:**
-   - `conceptual_rhythm` (what does this mean?)
-   - `strategic_italics` (vague, content-dependent)
-   - `recursive_analysis` (jargon without clarity)
-   - `intellectual_nuance` (aesthetic label, not a technique)
-   - `democracy_framing` (content tag, not style tag)
-
-   **Tag Categories** (include both):
-   - **Structural tags** (what the passage does): `introduces_topic`, `handles_objection`, `builds_definition`, `pivots_argument`, `closes_with_implication`
-   - **Technique tags** (how it does it): `parallel_structure`, `ascending_complexity`, `contrasts_concrete_abstract`, `uses_short_sentences`, `embeds_qualification`
-
-{% if existing_tags %}
-## Existing Tags in Catalog
-
-For consistency, please **reuse existing tags when appropriate** rather than creating similar variants:
-
-{% for tag in existing_tags[:40] %}
+{% for tag in existing_tier2_tags %}
 - {{ tag }}
 {% endfor %}
-{% if existing_tags|length > 40 %}
-... and {{ existing_tags|length - 40 }} more
+
+You may still create new Tier 2 tags for genuinely novel craft moves.
 {% endif %}
 
-**Important**: You can still create new tags if you identify craft moves not covered by the existing vocabulary, but prefer reuse when the existing tag accurately describes what you're identifying. When creating new tags, follow the self-explanatory principle above.
-{% endif %}
+---
 
 ## Output Format
+
 ```json
 {
   "passages": [
     {
-      "text": "The full extracted passage...",
+      "text": "The full extracted passage text...",
       "craft_move": "concessive_opening",
-      "teaching_note": "Notice how the author opens by granting substantial ground to predecessors before pivoting to critique. The concession ('Both deserved their reputation, for both repudiated many errors') establishes fairness before the 'But neither went as far...' turn. This builds authority while softening the critical blow.",
-      "tags": ["opens_with_concession", "handles_predecessors", "establishes_fairness", "pivots_with_but"]
+      "teaching_note": "Notice how the author opens by granting substantial ground before pivoting to critique. The concession ('Both deserved their reputation') establishes fairness before the 'But neither went as far...' turn. This builds authority while softening the critical blow.",
+      "tags": ["opens_with_concession", "pivots_with_but", "acknowledges_complexity"]
+    },
+    {
+      "text": "Another passage demonstrating different craft...",
+      "craft_move": "escalating_examples",
+      "teaching_note": "Notice how each example intensifies the previous one. The author doesn't just list instances—each raises the stakes, moving from mild to severe. The rhythm accelerates as the examples shorten.",
+      "tags": ["builds_via_examples", "builds_via_escalation", "varies_sentence_length"]
     }
   ],
-  "overall_observations": "Optional: Any patterns you notice across your selections that characterize this author's style broadly."
+  "chapter_observations": "Optional: Patterns you notice that characterize this author's style—recurring moves, distinctive textures, structural habits."
 }
 ```
 
-## Important
+---
 
-- **Extract the actual text.** Do not reference paragraph numbers.
-- **Do NOT mention the author's name.** Refer to "the author" or "the writer" instead. Even if you recognize the author from the text or can infer their identity, maintain anonymity in your analysis. This applies to teaching notes, craft move labels, tags, and observations.
-- **Be specific in teaching notes.** "Good structure" is useless. "Opens with a concrete image before abstracting to principle" is useful.
-- **Prioritize variety.** Don't select five passages that all demonstrate the same move.
-- **These are for style, not content.** A passage about democracy is not selected because democracy is important, but because of how the author constructs the argument about democracy.
-- **Make tags self-explanatory.** Remember: the planning agent sees ONLY tag names. "concessive_opening" works; "strategic_nuance" doesn't.
+## Important Reminders
+
+- **Extract actual text.** Do not reference paragraph numbers or say "the passage beginning with..."
+- **Do NOT mention the author's name.** Refer to "the author" or "the writer" even if you recognize them.
+- **Be specific in teaching notes.** "Good structure" is useless. "Opens with concrete image before abstracting to principle" is useful.
+- **Prioritize variety.** Select passages demonstrating different moves, not five examples of the same technique.
+- **Style, not content.** A passage about democracy is selected for HOW the argument is built, not because democracy matters.
+- **Canonical tags first.** Check the Tier 1 list before creating new tags.
