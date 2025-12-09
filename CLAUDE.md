@@ -278,7 +278,7 @@ with SegmentStore("segments.db") as store:
     total = store.get_count()             # Total segments
 ```
 
-**Prompt design principles** (`exemplary_segment_analysis.jinja`):
+**Prompt design principles** (`segment_style_analysis.jinja`):
 - **Author anonymity**: Prompt explicitly forbids mentioning author names
 - **Parameterized requests**: `{{ num_segments }}` makes count configurable
 - **Craft focus**: Emphasizes teachable techniques, not content analysis
@@ -362,7 +362,7 @@ This project inherits extensive prompt models from `russell_writes`:
 
 ### Style Retrieval Models (Active)
 - **`ExemplarySegmentAnalysisConfig`**: Identifies exemplary passages demonstrating craft moves
-  - Has active template: `exemplary_segment_analysis.jinja`
+  - Has active template: `segment_style_analysis.jinja`
   - Parameters: `chapter_text`, `file_name`, `num_segments` (5-20)
   - Returns: `ExemplarySegmentAnalysis` with passages and observations
 - **`ExemplarySegment`**: Single passage with craft annotations
@@ -537,7 +537,7 @@ This enables writing agents to dynamically select appropriate stylistic examples
 
 ## Known Considerations
 
-- **Template Creation**: Most inherited prompt models lack corresponding `.jinja` templates. Create templates only when actively using a model. The `exemplary_segment_analysis.jinja` template is fully implemented and tested.
+- **Template Creation**: Most inherited prompt models lack corresponding `.jinja` templates. Create templates only when actively using a model. The `segment_style_analysis.jinja` template is fully implemented and tested.
 
 - **API Keys**: Set environment variables for your chosen provider before running any LLM code.
 

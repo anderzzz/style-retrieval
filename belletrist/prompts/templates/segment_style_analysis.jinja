@@ -54,9 +54,30 @@ Identify {{ num_segments }} passages that would serve as excellent craft demonst
 
 3. **Teaching Note**: 2-4 sentences explaining what makes this passage exemplary. Write as if briefing another writing teacher: "Notice how the author..." Be specific enough that someone could attempt to replicate the technique.
 
-4. **Tags**: 3-6 lowercase tags for retrieval. Include both:
-   - Structural tags (what the passage does): e.g., "introduces_topic", "handles_objection", "builds_definition"
-   - Technique tags (how it does it): e.g., "parallel_structure", "ascending_complexity", "ironic_deflation"
+4. **Tags**: 3-6 lowercase tags for retrieval. **CRITICAL CONSTRAINT**: These tags will be used by an AI planning agent that sees ONLY the tag name with no other context. The agent must be able to understand what each tag means from the name alone.
+
+   **Tag Design Principles:**
+   - **Self-explanatory**: The tag name should describe what the technique does or achieves (not just label it with jargon)
+   - **Functionally descriptive**: Focus on the action or outcome, not vague aesthetics
+   - **Style-focused**: Describe HOW the author writes, not WHAT they write about
+
+   **Good Tag Examples:**
+   - `opens_with_concession` (clear action)
+   - `builds_via_examples` (clear method)
+   - `short_sentence_punch` (clear technique + effect)
+   - `qualifies_without_hedging` (clear technique + outcome)
+   - `transitions_via_question` (clear structural function)
+
+   **Bad Tag Examples to AVOID:**
+   - `conceptual_rhythm` (what does this mean?)
+   - `strategic_italics` (vague, content-dependent)
+   - `recursive_analysis` (jargon without clarity)
+   - `intellectual_nuance` (aesthetic label, not a technique)
+   - `democracy_framing` (content tag, not style tag)
+
+   **Tag Categories** (include both):
+   - **Structural tags** (what the passage does): `introduces_topic`, `handles_objection`, `builds_definition`, `pivots_argument`, `closes_with_implication`
+   - **Technique tags** (how it does it): `parallel_structure`, `ascending_complexity`, `contrasts_concrete_abstract`, `uses_short_sentences`, `embeds_qualification`
 
 {% if existing_tags %}
 ## Existing Tags in Catalog
@@ -70,7 +91,7 @@ For consistency, please **reuse existing tags when appropriate** rather than cre
 ... and {{ existing_tags|length - 40 }} more
 {% endif %}
 
-**Important**: You can still create new tags if you identify craft moves not covered by the existing vocabulary, but prefer reuse when the existing tag accurately describes what you're identifying.
+**Important**: You can still create new tags if you identify craft moves not covered by the existing vocabulary, but prefer reuse when the existing tag accurately describes what you're identifying. When creating new tags, follow the self-explanatory principle above.
 {% endif %}
 
 ## Output Format
@@ -81,7 +102,7 @@ For consistency, please **reuse existing tags when appropriate** rather than cre
       "text": "The full extracted passage...",
       "craft_move": "concessive_opening",
       "teaching_note": "Notice how the author opens by granting substantial ground to predecessors before pivoting to critique. The concession ('Both deserved their reputation, for both repudiated many errors') establishes fairness before the 'But neither went as far...' turn. This builds authority while softening the critical blow.",
-      "tags": ["opens_argument", "handles_predecessors", "concessive_structure", "balanced_judgment"]
+      "tags": ["opens_with_concession", "handles_predecessors", "establishes_fairness", "pivots_with_but"]
     }
   ],
   "overall_observations": "Optional: Any patterns you notice across your selections that characterize this author's style broadly."
@@ -95,3 +116,4 @@ For consistency, please **reuse existing tags when appropriate** rather than cre
 - **Be specific in teaching notes.** "Good structure" is useless. "Opens with a concrete image before abstracting to principle" is useful.
 - **Prioritize variety.** Don't select five passages that all demonstrate the same move.
 - **These are for style, not content.** A passage about democracy is not selected because democracy is important, but because of how the author constructs the argument about democracy.
+- **Make tags self-explanatory.** Remember: the planning agent sees ONLY tag names. "concessive_opening" works; "strategic_nuance" doesn't.

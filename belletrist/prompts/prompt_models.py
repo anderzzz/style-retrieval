@@ -745,7 +745,7 @@ class ExemplarySegmentAnalysis(BaseModel):
 
 
 class ExemplarySegmentAnalysisConfig(BasePromptConfig):
-    """Configuration for exemplary_segment_analysis.jinja.
+    """Configuration for segment_style_analysis.jinja.
 
     Analyzes a chapter to identify exemplary segments worth
     cataloging as few-shot examples. Focus is on form/function, not
@@ -779,7 +779,7 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
 
     @classmethod
     def template_name(cls) -> str:
-        return "exemplary_segment_analysis"
+        return "segment_style_analysis"
 
 
 # =============================================================================
