@@ -33,9 +33,11 @@ from belletrist.segment_store import SegmentRecord
 # ============================================================================
 
 # API Configuration
-API_KEY = os.environ.get('MISTRAL_API_KEY', '')
+#API_KEY = os.environ.get('MISTRAL_API_KEY', '')
+API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 #API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')  # or set directly: "sk-..."
-MODEL = "mistral/mistral-large-2512"
+#MODEL = "mistral/mistral-large-2512"
+MODEL = 'anthropic/claude-sonnet-4-5-20250929'
 #MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
 
 # Alternative examples:
@@ -46,8 +48,9 @@ MODEL = "mistral/mistral-large-2512"
 
 # Paths
 DATA_PATH = Path(__file__).parent.parent / "data" / "russell"
-DB_PATH = Path(__file__).parent.parent / "segments.db"
+DB_PATH = Path(__file__).parent.parent / "segments_mistral.db"
 OUTPUT_PATH = Path(__file__).parent.parent / "outputs"
+OUTPUT_FILE_NAME = "rewrite_output_sonnet"
 
 # LLM Parameters
 PLANNING_TEMPERATURE = 0.5       # Lower for deterministic planning
@@ -59,7 +62,7 @@ MAX_TOKENS_REWRITING = 8192
 # Workflow Parameters
 NUM_EXAMPLES_PER_PARAGRAPH = 3
 TARGET_STYLE = "balanced, lucid, rhythmically varied with concessive structure"
-CREATIVE_LATITUDE = "moderate"  # "conservative", "moderate", or "aggressive"
+CREATIVE_LATITUDE = "conservative"  # "conservative", "moderate", or "aggressive"
 MAX_TAGS_TO_SHOW = 50  # Maximum tags to show in planning prompt (0 = show all)
 
 # Input Text (flattened/style-sparse)
@@ -274,6 +277,7 @@ def retrieve_examples(
             }
             for seg in selected
         ]
+        print (examples_by_paragraph)
 
         print(f"        ✓ Selected {len(selected)} examples")
 
@@ -312,6 +316,7 @@ def rewrite_with_style(
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
     print(f"      Paragraphs to rewrite: {len(plan.paragraphs)}")
+    print(prompt)
 
     # Call LLM (text output, not schema)
     print("      Calling LLM for stylistic rewriting...")
@@ -361,7 +366,7 @@ def main():
         model=MODEL,
         api_key=API_KEY,
         temperature=PLANNING_TEMPERATURE,
-        max_tokens=MAX_TOKENS_PLANNING
+#        max_tokens=MAX_TOKENS_PLANNING
     ))
     print(f"        ✓ Planning LLM configured (temp={PLANNING_TEMPERATURE})")
 
@@ -369,7 +374,7 @@ def main():
         model=MODEL,
         api_key=API_KEY,
         temperature=REWRITING_TEMPERATURE,
-        max_tokens=MAX_TOKENS_REWRITING
+#        max_tokens=MAX_TOKENS_REWRITING
     ))
     print(f"        ✓ Rewriting LLM configured (temp={REWRITING_TEMPERATURE})")
 
@@ -460,7 +465,7 @@ def main():
 
         # Save output
         OUTPUT_PATH.mkdir(exist_ok=True)
-        output_file = OUTPUT_PATH / "rewrite_output.txt"
+        output_file = OUTPUT_PATH / f"{OUTPUT_FILE_NAME}.txt"
         with open(output_file, 'w') as f:
             f.write("="*60 + "\n")
             f.write("ORIGINAL TEXT\n")

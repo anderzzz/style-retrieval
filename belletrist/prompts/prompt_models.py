@@ -795,24 +795,27 @@ class ParagraphPlan(BaseModel):
 
     Contains the original text, its rhetorical function, and craft move guidance
     for stylistic rewriting.
+
+    Note: Field limits are forgiving guardrails, not strict targets.
+    Prompts should guide LLMs toward concise output, but modest overruns are acceptable.
     """
     paragraph_id: int = Field(..., ge=0, description="Paragraph index (0-based)")
     original_text: str = Field(..., min_length=10, description="Original paragraph text")
     function: str = Field(
-        ..., min_length=10, max_length=200,
+        ..., min_length=10, max_length=300,
         description="Rhetorical function (e.g., 'introduces_concept', 'counterargument', 'conclusion')"
     )
     craft_move: str = Field(
-        ..., min_length=3, max_length=50,
+        ..., min_length=3, max_length=100,
         description="Primary craft move to apply (e.g., 'concessive_opening', 'parallel_structure')"
     )
     craft_tags: List[str] = Field(
-        ..., min_length=1, max_length=4,
-        description="Tags for retrieving relevant examples from catalog (1-4 tags)"
+        ..., min_length=1, max_length=5,
+        description="Tags for retrieving relevant examples from catalog (1-5 tags)"
     )
     guidance: str = Field(
-        ..., min_length=20, max_length=300,
-        description="Brief instruction on how to apply the craft move (2-3 sentences)"
+        ..., min_length=20, max_length=500,
+        description="Brief instruction on how to apply the craft move (aim for 2-3 sentences, ~300 chars)"
     )
 
     @field_validator('craft_move')
@@ -833,14 +836,17 @@ class StyleRewritePlan(BaseModel):
 
     Output from planning agent that analyzes flattened text and prescribes
     craft moves for each paragraph.
+
+    Note: Field limits are forgiving guardrails, not strict targets.
+    Prompts should guide toward concise output, but modest overruns are acceptable.
     """
     paragraphs: List[ParagraphPlan] = Field(
         ..., min_length=1, max_length=50,
         description="Paragraph-level rewriting plans (1-50 paragraphs)"
     )
     overall_strategy: str = Field(
-        ..., min_length=50, max_length=500,
-        description="High-level description of rewrite approach"
+        ..., min_length=30, max_length=800,
+        description="High-level description of rewrite approach (aim for ~300-500 chars)"
     )
 
 

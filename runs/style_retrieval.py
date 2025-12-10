@@ -179,9 +179,9 @@ def analyze_chapter(
     config = ExemplarySegmentAnalysisConfig(
         chapter_text=chapter_segment.text,
         file_name=chapter_segment.file_path.name,
-        num_segments=5,  # Request 5 passages
-        existing_tier2_tags=existing_tier2_tags or [],  # Pass Tier 2 tags for consistency
-        canonical_tags_formatted=canonical_tags_formatted or []  # Pass canonical tags for injection
+        num_segments=5,
+        existing_tier2_tags=existing_tier2_tags or [],
+        canonical_tags_formatted=canonical_tags_formatted or []
     )
 
     if existing_tier2_tags:

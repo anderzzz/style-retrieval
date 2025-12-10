@@ -90,29 +90,33 @@ Before assigning tags to a paragraph, ask:
 
 1. **Identify paragraphs**: Find natural paragraph boundaries in the text
 
-2. **Diagnose each paragraph**: What is it trying to do? What's weak or could be stronger?
+2. **Analyze each paragraph**:
+   - What is its rhetorical function?
+   - What's weak or could be stronger?
 
-3. **Prescribe craft moves**: What techniques would improve it? Select 1-3 tags that will retrieve helpful examples.
+3. **Prescribe craft moves**:
+   - Name the primary technique (`craft_move` field): a short descriptor like "concessive_opening" or "pivot_with_grounding"
+   - Select 1-4 tags (`craft_tags` field) that will retrieve helpful examples from the catalog
 
-4. **Write guidance**: Brief instruction (2-3 sentences) on HOW to apply the craft move—what specifically should change?
+4. **Write guidance**: Brief instruction (20-300 chars, 2-3 sentences) on HOW to apply the craft move—what specifically should change?
 
 ---
 
 ## Output Format
 
-Return a JSON object:
+Return a JSON object matching this structure:
 
 ```json
 {
-  "overall_strategy": "High-level description of the rewriting approach—what's the main goal?",
+  "overall_strategy": "High-level description (50-500 chars)",
   "paragraphs": [
     {
       "paragraph_id": 0,
       "original_text": "The paragraph text as it currently exists.",
-      "function": "What this paragraph is trying to accomplish",
-      "diagnosis": "What's currently weak or missing",
+      "function": "What this paragraph is trying to accomplish (10-200 chars)",
+      "craft_move": "Primary craft technique name like 'concessive_opening' (3-50 chars)",
       "craft_tags": ["tag_one", "tag_two"],
-      "guidance": "Specific instructions for the rewriter. What should change? How should the retrieved examples inform the rewrite?"
+      "guidance": "Brief instruction for rewriter (20-300 chars, 2-3 sentences)"
     }
   ]
 }
@@ -128,17 +132,17 @@ Return a JSON object:
       "paragraph_id": 0,
       "original_text": "Democracy has problems. It can be slow and inefficient. Sometimes the majority makes mistakes.",
       "function": "Introduce topic by acknowledging democracy's flaws",
-      "diagnosis": "Opening is flat and list-like. No rhetorical shape—just statements. Needs a stronger hook and better build.",
+      "craft_move": "concessive_opening_with_escalation",
       "craft_tags": ["opens_with_concession", "builds_via_escalation"],
-      "guidance": "Open by genuinely granting the critic's strongest point, not just listing flaws. Then let each subsequent flaw feel weightier than the last. The retrieved examples will show how to make a concession feel generous rather than perfunctory."
+      "guidance": "Open by granting the critic's strongest point, not listing flaws. Let each flaw feel weightier than the last. Examples will show generous concession rather than perfunctory."
     },
     {
       "paragraph_id": 1,
       "original_text": "But democracy also has strengths. It allows for self-correction. People can vote out bad leaders.",
       "function": "Pivot to democracy's advantages",
-      "diagnosis": "The 'but' pivot is too weak—reads as throat-clearing. The strengths are asserted but not demonstrated.",
+      "craft_move": "emphatic_pivot_with_grounding",
       "craft_tags": ["pivots_with_but", "builds_via_examples", "pairs_abstract_and_concrete"],
-      "guidance": "Make the pivot emphatic—the 'but' should feel like a turn, not a wobble. Then ground 'self-correction' in a concrete instance. Retrieved examples will show how to make the abstract tangible."
+      "guidance": "Make the pivot emphatic—a turn, not a wobble. Ground 'self-correction' in concrete instance. Examples show how to make the abstract tangible."
     }
   ]
 }
@@ -148,10 +152,15 @@ Return a JSON object:
 
 ## Critical Rules
 
+- **Required fields**: Every paragraph MUST have: `paragraph_id`, `original_text`, `function`, `craft_move`, `craft_tags`, `guidance`
+- **Length targets** (modest overruns acceptable):
+  - `overall_strategy`: ~300-500 characters (hard limit: 800)
+  - `function`: ~50-150 characters (hard limit: 300)
+  - `craft_move`: short descriptor, use underscores (hard limit: 100)
+  - `guidance`: 2-3 sentences, ~250-350 characters (hard limit: 500)
 - **Only use tags that exist** in Tier 1 or Tier 2 lists above
-- **1-3 tags per paragraph** — enough to guide retrieval, not so many that it's unfocused
+- **1-4 tags per paragraph** — enough to guide retrieval, not so many that it's unfocused
 - **Be specific in guidance** — "make it better" is useless; "open with a concrete image before stating the principle" is useful
-- **Diagnosis before prescription** — identify what's weak before suggesting fixes
 - **Match ambition to latitude** — conservative latitude means subtle enhancement; aggressive means bold transformation
 
 ---
