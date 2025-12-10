@@ -88,23 +88,32 @@ def plan_rewrite(
 
     Args:
         flattened_text: Style-sparse input text
-        available_tags: Tags from segment catalog
+        available_tags: All tags from segment catalog (will be filtered internally)
         llm: LLM instance
         prompt_maker: PromptMaker instance
         creative_latitude: "conservative", "moderate", or "aggressive"
-        max_tags_to_show: Maximum tags to show in prompt (0 = show all)
+        max_tags_to_show: Maximum tags to show in prompt (0 = show all; DEPRECATED - filtering now done internally)
 
     Returns:
         StyleRewritePlan with paragraph-level guidance
     """
+    from belletrist.prompts.canonical_tags import get_all_canonical_tags, format_for_jinja
+
     print("\n[1/3] Planning Agent: Analyzing text structure...")
+
+    # Filter out canonical tags to get only Tier 2
+    canonical_tag_set = get_all_canonical_tags()
+    tier2_tags = [tag for tag in available_tags if tag not in canonical_tag_set]
+
+    # Get formatted canonical tags for template injection
+    canonical_tags_formatted = format_for_jinja()
 
     # Create config
     config = StyleRewritePlannerConfig(
         flattened_text=flattened_text,
-        available_tags=available_tags,
-        creative_latitude=creative_latitude,
-        max_tags_to_show=max_tags_to_show
+        tier2_tags=tier2_tags,
+        canonical_tags_formatted=canonical_tags_formatted,
+        creative_latitude=creative_latitude
     )
 
     # Render prompt
@@ -303,8 +312,6 @@ def rewrite_with_style(
     prompt = prompt_maker.render(config)
     print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
     print(f"      Paragraphs to rewrite: {len(plan.paragraphs)}")
-
-    print(f"AAA\n{prompt}")
 
     # Call LLM (text output, not schema)
     print("      Calling LLM for stylistic rewriting...")
