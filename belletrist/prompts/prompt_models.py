@@ -694,9 +694,9 @@ class ExemplarySegment(BaseModel):
     )
     tags: List[str] = Field(
         ...,
-        min_length=3,
-        max_length=6,
-        description="3-6 lowercase tags for retrieval, including both structural tags (what it does) and technique tags (how it does it)"
+        min_length=2,
+        max_length=5,
+        description="2-5 lowercase tags for retrieval: 1-2 canonical tags (Tier 1) + 0-3 author-specific tags (Tier 2)"
     )
 
     @field_validator('craft_move')
@@ -719,8 +719,8 @@ class ExemplarySegment(BaseModel):
             if cleaned_tag:
                 cleaned.append(cleaned_tag)
 
-        if len(cleaned) < 3:
-            raise ValueError("At least 3 valid tags required after normalization")
+        if len(cleaned) < 2:
+            raise ValueError("At least 2 valid tags required after normalization")
 
         return cleaned
 
