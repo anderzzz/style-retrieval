@@ -16,16 +16,9 @@ USAGE:
 """
 import os
 from pathlib import Path
-from typing import List, Dict
 
 from belletrist import LLM, LLMConfig, PromptMaker, DataSampler, SegmentStore
-from belletrist.prompts import (
-    StyleRewritePlannerConfig,
-    StyledRewriteConfig,
-    StyleRewritePlan,
-    ParagraphPlan
-)
-from belletrist.segment_store import SegmentRecord
+from belletrist.agent_rewriter import agent_rewrite
 
 
 # ============================================================================
@@ -38,7 +31,7 @@ API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 #API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')  # or set directly: "sk-..."
 #MODEL = "mistral/mistral-large-2512"
 MODEL = 'anthropic/claude-sonnet-4-5-20250929'
-#MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
+#MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
 
 # Alternative examples:
 # MODEL = "gpt-4o"
@@ -56,278 +49,133 @@ OUTPUT_FILE_NAME = "rewrite_output_sonnet"
 PLANNING_TEMPERATURE = 0.5       # Lower for deterministic planning
 REWRITING_TEMPERATURE = 0.7      # Moderate for creative rewriting
 
-MAX_TOKENS_PLANNING = 4096
-MAX_TOKENS_REWRITING = 8192
+MAX_TOKENS_PLANNING = 8192   # Large JSON plans need generous token budget
+MAX_TOKENS_REWRITING = 8192  # Full paragraph rewrites need generous token budget
 
 # Workflow Parameters
 NUM_EXAMPLES_PER_PARAGRAPH = 3
 TARGET_STYLE = "balanced, lucid, rhythmically varied with concessive structure"
 CREATIVE_LATITUDE = "conservative"  # "conservative", "moderate", or "aggressive"
-MAX_TAGS_TO_SHOW = 50  # Maximum tags to show in planning prompt (0 = show all)
 
 # Input Text (flattened/style-sparse)
+#INPUT_TEXT = """
+#Democracy has flaws. It can be inefficient and messy. Leaders are elected by popularity rather than competence. The process is slow.
+#
+#But democracy remains the best system. It provides accountability. Citizens can remove bad leaders. No other system has proven superior.
+#
+#The alternatives are worse. Autocracy lacks checks on power. Technocracy ignores popular will. Aristocracy entrenches privilege.
+#
+#Democracy's strength is its weakness. Slowness prevents rash action. Messiness reflects genuine debate. Inefficiency protects against tyranny.
+#"""
 INPUT_TEXT = """
-Democracy has flaws. It can be inefficient and messy. Leaders are elected by popularity rather than competence. The process is slow.
+- Educational theory has changed significantly since earlier times, particularly in relation to democracy and accessibility.
 
-But democracy remains the best system. It provides accountability. Citizens can remove bad leaders. No other system has proven superior.
+- Before the nineteenth century, the two major figures in educational reform were Locke and Rousseau.
 
-The alternatives are worse. Autocracy lacks checks on power. Technocracy ignores popular will. Aristocracy entrenches privilege.
+- Both Locke and Rousseau rejected many widespread educational errors of their time and contributed meaningfully to educational thought.
 
-Democracy's strength is its weakness. Slowness prevents rash action. Messiness reflects genuine debate. Inefficiency protects against tyranny.
+- Despite their progressive reputations, neither Locke nor Rousseau extended their ideas to support universal education.
+
+- Both thinkers focused on the education of a single aristocratic boy, assuming that one adult could devote full time to one child.
+
+- This model, while potentially effective, is not scalable because it is impossible for every child to have a full-time tutor.
+
+- Therefore, the model is limited to a privileged minority and cannot exist in a just society.
+
+- Modern educational thought requires that any acceptable system must be applicable to all children, at least in theory.
+
+- The ideal educational system must be democratic, even if full realization of this ideal is not immediately possible.
+
+- This democratic ideal is now widely accepted.
+
+- The author supports keeping democracy as a guiding principle in educational reform.
+
+- Any educational method advocated should be capable of universal application.
+
+- Individuals may currently use non-universal methods if better than available public options, but such choices should not be considered ideal.
+
+- The democratic principle, even in a minimal form, is absent in the works of both Locke and Rousseau.
+
+- Rousseau, despite opposing aristocracy, failed to apply his anti-aristocratic views to education.
+
+- Clarity is essential when discussing democracy and education.
+
+- Insisting on uniformity in education would be harmful.
+
+- There are natural differences in ability among children: some are more capable of benefiting from advanced education.
+
+- Teachers also vary in quality, and it is impossible for all students to be taught by the best teachers.
+
+- Even if higher education were suitable for everyone, it is not currently feasible for all to access it.
+
+- A rigid application of democratic equality might lead to the conclusion that no one should receive higher education, which would be detrimental.
+
+- Such an outcome would hinder scientific progress and lower the overall educational standard in the future.
+
+- Progress should not be sacrificed for mechanical equality.
+
+- Educational democracy must be pursued carefully to preserve existing valuable educational achievements, even if they originated in unjust social conditions.
+
+- An educational method cannot be considered satisfactory if it cannot, in principle, be made universal.
+
+- Children of wealthy families often receive disproportionate attention from multiple caregivers, such as a mother, nurse, nurserymaid, and domestic servants.
+
+- This level of individual attention cannot be provided to all children in any feasible social system.
+
+- It is uncertain whether such careful, dependent upbringing benefits children, and it may foster parasitic behavior.
+
+- No impartial observer can justify special educational advantages for the few, except in cases of exceptional need or ability, such as genius or intellectual disability.
+
+- At present, wise parents may choose non-universal educational methods for their children, especially for experimental purposes.
+
+- Such experimental methods should be ones that could, in principle, be extended to all if proven effective.
+
+- Methods that are inherently limited to a privileged few should not be promoted.
+
+- Some of the most valuable developments in modern education originated from democratic contexts.
+
+- For example, Montessori’s work began in nursery schools in impoverished urban areas.
+
+- In higher education, exceptional opportunities should be available for those with exceptional ability.
+
+- Outside of cases involving exceptional talent, there is no justification for educational systems that cannot be universally adopted.
+
+- A second modern trend in education is the shift from ornamental to useful education, which is related to democratic values but more debatable.
+
+- Veblen’s “Theory of the Leisure Class” discusses the link between ornamentation and aristocracy, though only the educational implications are relevant here.
+
+- In male education, this trend appears in the debate between classical education (ornamental) and modern, science-based education (useful).
+
+- In female education, the conflict manifests as a choice between the ideal of the “gentlewoman” and training for self-sufficiency.
+
+- The educational issues concerning women have been complicated by the pursuit of sex equality.
+
+- Women’s education has often aimed to replicate the education given to boys, even when that education is not inherently valuable.
+
+- Women educators have sometimes emphasized the same “useless” knowledge given to boys and have resisted including training related to motherhood.
+
+- These conflicting goals make the shift from ornamental to useful education less clear-cut in the context of female education.
+
+- The decline of the “fine lady” ideal is a significant example of the broader trend toward useful education.
+
+- To clarify the argument, the author will focus only on male education for the remainder of the discussion.
+
+- Several educational controversies are partially shaped by the distinction between useful and ornamental education.
+
+- Examples include: whether boys should study classics or science, with classics seen as ornamental and science as useful.
+
+- Another issue is whether education should quickly become technical training for a specific trade or profession, where usefulness is a central concern.
+
+- The debate over whether children should be taught correct speech and polite manners involves questioning whether these are merely aristocratic relics.
+
+- The value of art appreciation is questioned, particularly for those who are not artists.
+
+- The proposal for phonetic spelling is another issue influenced by the useful vs. ornamental framework.
+
+- Many educational debates are, at least in part, framed by the underlying conflict between usefulness and ornamentation.
 """
 
 # ============================================================================
-
-
-def plan_rewrite(
-    flattened_text: str,
-    available_tags: List[str],
-    llm: LLM,
-    prompt_maker: PromptMaker,
-    creative_latitude: str = "moderate",
-    max_tags_to_show: int = 50
-) -> StyleRewritePlan:
-    """Phase 1: Planning agent analyzes text and creates rewrite plan.
-
-    Args:
-        flattened_text: Style-sparse input text
-        available_tags: All tags from segment catalog (will be filtered internally)
-        llm: LLM instance
-        prompt_maker: PromptMaker instance
-        creative_latitude: "conservative", "moderate", or "aggressive"
-        max_tags_to_show: Maximum tags to show in prompt (0 = show all; DEPRECATED - filtering now done internally)
-
-    Returns:
-        StyleRewritePlan with paragraph-level guidance
-    """
-    from belletrist.prompts.canonical_tags import get_all_canonical_tags, format_for_jinja
-
-    print("\n[1/3] Planning Agent: Analyzing text structure...")
-
-    # Filter out canonical tags to get only Tier 2
-    canonical_tag_set = get_all_canonical_tags()
-    tier2_tags = [tag for tag in available_tags if tag not in canonical_tag_set]
-
-    # Get formatted canonical tags for template injection
-    canonical_tags_formatted = format_for_jinja()
-
-    # Create config
-    config = StyleRewritePlannerConfig(
-        flattened_text=flattened_text,
-        tier2_tags=tier2_tags,
-        canonical_tags_formatted=canonical_tags_formatted,
-        creative_latitude=creative_latitude
-    )
-
-    # Render prompt
-    prompt = prompt_maker.render(config)
-    print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
-
-    # Debug: Print prompt preview
-    if os.environ.get('DEBUG_PROMPTS'):
-        print(f"\n      Prompt preview (first 500 chars):")
-        print(f"      {prompt[:500]}...")
-        print()
-
-    # Call LLM with schema
-    print("      Calling LLM for structural analysis...")
-    try:
-        response = llm.complete_with_schema(
-            prompt=prompt,
-            schema_model=StyleRewritePlan,
-            system="You are a JSON API that returns structured data. Always respond with valid JSON matching the requested schema. Never include explanatory text.",
-            strict=False  # Some models (like Qwen) don't support strict schema mode
-        )
-    except ValueError as e:
-        # If schema validation fails, try to get raw response for debugging
-        print(f"\n      ✗ Schema validation failed!")
-        print(f"      Error: {str(e)[:200]}...")
-        print(f"\n      This might be a model-specific issue with {MODEL}")
-        print(f"      Try using a different model (e.g., GPT-4, Claude) or check the prompt template.")
-        raise
-
-    plan: StyleRewritePlan = response.content
-
-    # Debug: print validation mode
-    print(f"      Schema validation mode: {response.schema_validation_mode}")
-
-    print(f"      ✓ Plan complete!")
-    print(f"      Identified {len(plan.paragraphs)} paragraphs")
-    print(f"      Strategy: {plan.overall_strategy[:80]}...")
-
-    return plan
-
-
-def select_examples_with_heuristics(
-    candidates: List[SegmentRecord],
-    max_examples: int = 3
-) -> List[SegmentRecord]:
-    """Select best examples using deterministic heuristics.
-
-    Ranking criteria:
-    1. Length (prefer shorter)
-    2. Tag specificity (prefer fewer tags)
-    3. Source diversity (prefer different files)
-
-    Args:
-        candidates: List of candidate SegmentRecords
-        max_examples: Maximum examples to return
-
-    Returns:
-        Ranked list of top examples
-    """
-    if not candidates:
-        return []
-
-    scored = []
-    for segment in candidates:
-        score = 0
-
-        # 1. Prefer shorter examples (easier to learn from)
-        length = len(segment.text)
-        if length < 500:
-            score += 3
-        elif length < 1000:
-            score += 2
-        else:
-            score += 1
-
-        # 2. Prefer focused examples (fewer tags = more specific)
-        num_tags = len(segment.tags)
-        if num_tags <= 3:
-            score += 3
-        elif num_tags <= 5:
-            score += 2
-        else:
-            score += 1
-
-        scored.append((score, segment))
-
-    # Sort by score descending
-    scored.sort(reverse=True, key=lambda x: x[0])
-
-    # Take top N, ensuring source diversity
-    selected = []
-    seen_files = set()
-
-    for score, segment in scored:
-        # Prefer diversity (different source files)
-        if len(selected) < max_examples:
-            selected.append(segment)
-            seen_files.add(segment.file_name)
-        elif segment.file_name not in seen_files and len(selected) < max_examples * 2:
-            # Allow duplicates from same file only if we don't have enough
-            selected.append(segment)
-
-    return selected[:max_examples]
-
-
-def retrieve_examples(
-    plan: StyleRewritePlan,
-    store: SegmentStore,
-    num_examples: int = 3
-) -> Dict[int, List[dict]]:
-    """Phase 2: Retrieve relevant examples for each paragraph using heuristics.
-
-    Args:
-        plan: StyleRewritePlan from planning agent
-        store: SegmentStore instance
-        num_examples: Number of examples to retrieve per paragraph
-
-    Returns:
-        Dict mapping paragraph_id -> list of example dicts
-    """
-    print("\n[2/3] Retrieval: Searching catalog for examples...")
-
-    examples_by_paragraph = {}
-
-    for para_plan in plan.paragraphs:
-        para_id = para_plan.paragraph_id
-        print(f"\n      Paragraph {para_id}: {para_plan.craft_move}")
-
-        # Collect candidates from all tags
-        candidates = []
-        for tag in para_plan.craft_tags:
-            tag_results = store.search_by_tag(tag, exact_match=True)
-            candidates.extend(tag_results)
-            print(f"        • {tag}: {len(tag_results)} matches")
-
-        # Deduplicate by segment_id
-        seen_ids = set()
-        unique_candidates = []
-        for candidate in candidates:
-            if candidate.segment_id not in seen_ids:
-                unique_candidates.append(candidate)
-                seen_ids.add(candidate.segment_id)
-
-        # Apply selection heuristics
-        selected = select_examples_with_heuristics(
-            unique_candidates,
-            max_examples=num_examples
-        )
-
-        # Convert to dicts for template
-        examples_by_paragraph[para_id] = [
-            {
-                'segment_id': seg.segment_id,
-                'craft_move': seg.craft_move,
-                'teaching_note': seg.teaching_note,
-                'tags': seg.tags,
-                'text': seg.text
-            }
-            for seg in selected
-        ]
-        print (examples_by_paragraph)
-
-        print(f"        ✓ Selected {len(selected)} examples")
-
-    total_examples = sum(len(exs) for exs in examples_by_paragraph.values())
-    print(f"\n      ✓ Retrieved {total_examples} total examples across {len(plan.paragraphs)} paragraphs")
-
-    return examples_by_paragraph
-
-
-def rewrite_with_style(
-    plan: StyleRewritePlan,
-    examples: Dict[int, List[dict]],
-    llm: LLM,
-    prompt_maker: PromptMaker
-) -> str:
-    """Phase 3: Rewriting agent generates styled output.
-
-    Args:
-        plan: StyleRewritePlan with paragraph guidance
-        examples: Retrieved examples by paragraph_id
-        llm: LLM instance
-        prompt_maker: PromptMaker instance
-
-    Returns:
-        Styled rewritten text
-    """
-    print("\n[3/3] Rewriting Agent: Generating styled output...")
-
-    # Create config
-    config = StyledRewriteConfig(
-        plan=plan,
-        retrieved_examples=examples
-    )
-
-    # Render prompt
-    prompt = prompt_maker.render(config)
-    print(f"      ✓ Prompt configured ({len(prompt):,} characters)")
-    print(f"      Paragraphs to rewrite: {len(plan.paragraphs)}")
-    print(prompt)
-
-    # Call LLM (text output, not schema)
-    print("      Calling LLM for stylistic rewriting...")
-    response = llm.complete(prompt)
-
-    styled_text = response.content
-
-    print(f"      ✓ Rewrite complete!")
-    print(f"      Output length: {len(styled_text):,} characters")
-
-    return styled_text
 
 
 def main():
@@ -366,7 +214,7 @@ def main():
         model=MODEL,
         api_key=API_KEY,
         temperature=PLANNING_TEMPERATURE,
-#        max_tokens=MAX_TOKENS_PLANNING
+        max_tokens=MAX_TOKENS_PLANNING
     ))
     print(f"        ✓ Planning LLM configured (temp={PLANNING_TEMPERATURE})")
 
@@ -374,111 +222,84 @@ def main():
         model=MODEL,
         api_key=API_KEY,
         temperature=REWRITING_TEMPERATURE,
-#        max_tokens=MAX_TOKENS_REWRITING
+        max_tokens=MAX_TOKENS_REWRITING
     ))
     print(f"        ✓ Rewriting LLM configured (temp={REWRITING_TEMPERATURE})")
 
     prompt_maker = PromptMaker()
     print(f"        ✓ PromptMaker ready")
 
-    # Open segment store
-    print(f"\n[Setup] Opening segment database: {DB_PATH}")
+    # Validate segment database exists
+    if not DB_PATH.exists():
+        raise FileNotFoundError(
+            f"Segment database not found: {DB_PATH}\n"
+            f"Please run style_retrieval.py first to build the catalog."
+        )
+    print(f"\n[Setup] Segment database validated: {DB_PATH}")
+
+    # ====================================================================
+    # PHASES 1-3: PLANNING → RETRIEVAL → REWRITING
+    # ====================================================================
+    print("\n" + "="*60)
+    print("AGENT-BASED REWRITING WORKFLOW")
+    print("="*60)
+    print("\nPhases:")
+    print("  Planning: Analyzing text structure...")
+    print("  Retrieval: Searching catalog for examples...")
+    print("  Rewriting: Generating styled output...")
+    print()
+
+    print(f"Input text length: {len(INPUT_TEXT)} characters")
+    print(f"Input preview: {INPUT_TEXT[:150]}...\n")
+
+    # Call the agent_rewrite wrapper (silent operation)
     with SegmentStore(DB_PATH) as store:
-        segment_count = store.get_count()
-        print(f"        ✓ SegmentStore connected ({segment_count} segments)")
-
-        # Get available tags
-        all_tags = store.list_all_tags()
-        available_tags = list(all_tags.keys())
-        print(f"        ✓ Loaded {len(available_tags)} unique tags")
-
-        # ====================================================================
-        # PHASE 1: PLANNING
-        # ====================================================================
-        print("\n" + "="*60)
-        print("PHASE 1: ANALYZE TEXT & CREATE REWRITE PLAN")
-        print("="*60)
-
-        print(f"\nInput text length: {len(INPUT_TEXT)} characters")
-        print(f"Input preview: {INPUT_TEXT[:150]}...\n")
-
-        plan = plan_rewrite(
-            flattened_text=INPUT_TEXT,
-            available_tags=available_tags,
-            llm=planning_llm,
+        styled_text = agent_rewrite(
+            flattened_content=INPUT_TEXT,
+            segment_store=store,
+            planning_llm=planning_llm,
+            rewriting_llm=rewriting_llm,
             prompt_maker=prompt_maker,
             creative_latitude=CREATIVE_LATITUDE,
-            max_tags_to_show=MAX_TAGS_TO_SHOW
+            num_examples_per_paragraph=NUM_EXAMPLES_PER_PARAGRAPH
         )
 
-        # Display plan summary
-        print(f"\n✓ Plan Summary:")
-        print(f"  Strategy: {plan.overall_strategy}")
-        print(f"  Paragraphs: {len(plan.paragraphs)}")
-        for para in plan.paragraphs:
-            print(f"    [{para.paragraph_id}] {para.craft_move} → {para.craft_tags}")
+    print("✓ All phases complete!")
 
-        # ====================================================================
-        # PHASE 2: RETRIEVAL
-        # ====================================================================
-        print("\n" + "="*60)
-        print("PHASE 2: RETRIEVE EXEMPLARY PASSAGES")
-        print("="*60)
+    # ====================================================================
+    # OUTPUT
+    # ====================================================================
+    print("\n" + "="*60)
+    print("WORKFLOW COMPLETE")
+    print("="*60)
 
-        examples = retrieve_examples(
-            plan=plan,
-            store=store,
-            num_examples=NUM_EXAMPLES_PER_PARAGRAPH
-        )
+    print("\n" + "─"*60)
+    print("ORIGINAL TEXT:")
+    print("─"*60)
+    print(INPUT_TEXT)
 
-        # ====================================================================
-        # PHASE 3: REWRITING
-        # ====================================================================
-        print("\n" + "="*60)
-        print("PHASE 3: GENERATE STYLED OUTPUT")
-        print("="*60)
+    print("\n" + "─"*60)
+    print("STYLED OUTPUT:")
+    print("─"*60)
+    print(styled_text)
+    print("─"*60)
 
-        styled_text = rewrite_with_style(
-            plan=plan,
-            examples=examples,
-            llm=rewriting_llm,
-            prompt_maker=prompt_maker
-        )
+    # Save output
+    OUTPUT_PATH.mkdir(exist_ok=True)
+    output_file = OUTPUT_PATH / f"{OUTPUT_FILE_NAME}.txt"
+    with open(output_file, 'w') as f:
+        f.write("="*60 + "\n")
+        f.write("ORIGINAL TEXT\n")
+        f.write("="*60 + "\n\n")
+        f.write(INPUT_TEXT)
+        f.write("\n\n")
+        f.write("="*60 + "\n")
+        f.write("STYLED OUTPUT\n")
+        f.write("="*60 + "\n\n")
+        f.write(styled_text)
 
-        # ====================================================================
-        # OUTPUT
-        # ====================================================================
-        print("\n" + "="*60)
-        print("WORKFLOW COMPLETE")
-        print("="*60)
-
-        print("\n" + "─"*60)
-        print("ORIGINAL TEXT:")
-        print("─"*60)
-        print(INPUT_TEXT)
-
-        print("\n" + "─"*60)
-        print("STYLED OUTPUT:")
-        print("─"*60)
-        print(styled_text)
-        print("─"*60)
-
-        # Save output
-        OUTPUT_PATH.mkdir(exist_ok=True)
-        output_file = OUTPUT_PATH / f"{OUTPUT_FILE_NAME}.txt"
-        with open(output_file, 'w') as f:
-            f.write("="*60 + "\n")
-            f.write("ORIGINAL TEXT\n")
-            f.write("="*60 + "\n\n")
-            f.write(INPUT_TEXT)
-            f.write("\n\n")
-            f.write("="*60 + "\n")
-            f.write("STYLED OUTPUT\n")
-            f.write("="*60 + "\n\n")
-            f.write(styled_text)
-
-        print(f"\n✓ Output saved to: {output_file}")
-        print("="*60)
+    print(f"\n✓ Output saved to: {output_file}")
+    print("="*60)
 
 
 if __name__ == "__main__":

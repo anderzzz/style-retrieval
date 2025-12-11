@@ -247,10 +247,15 @@ class LLM:
         try:
             response = self.complete(prompt, system, response_format=response_format, **kwargs)
         except Exception as e:
-            # If strict schema fails (provider doesn't support it), retry with json_object mode
+            # If strict schema fails (provider doesn't support it OR validation fails), retry with json_object mode
             error_msg = str(e).lower()
-            if strict and ("schema" in error_msg or "strict" in error_msg or "json_schema" in error_msg):
-                # Fallback to json_object mode
+            # Check for schema-related errors OR jsonschema ValidationError
+            is_schema_error = ("schema" in error_msg or "strict" in error_msg or
+                             "json_schema" in error_msg or "validationerror" in error_msg or
+                             "is a required property" in error_msg)
+
+            if strict and is_schema_error:
+                # Fallback to json_object mode (less strict, let Pydantic validate instead)
                 response = self.complete(prompt, system, response_format={"type": "json_object"}, **kwargs)
                 validation_mode = "fallback"
             else:
@@ -286,12 +291,36 @@ class LLM:
                 f"Consider increasing max_tokens in LLMConfig or reducing the amount of data requested."
             ) from e
 
+        # Unwrap common wrapper patterns (some LLMs add these in json_object mode)
+        # Check if response is wrapped in a single-key object
+        if isinstance(parsed_data, dict) and len(parsed_data) == 1:
+            wrapper_key = list(parsed_data.keys())[0]
+            # Common wrapper keys: json_payload, data, response, result, output, or schema name
+            common_wrappers = {'json_payload', 'data', 'response', 'result', 'output',
+                             schema_model.__name__, schema_model.__name__.lower()}
+            if wrapper_key in common_wrappers:
+                parsed_data = parsed_data[wrapper_key]
+
         try:
             validated_model = schema_model(**parsed_data)
         except ValidationError as e:
+            # Extract helpful details about what's missing
+            error_details = []
+            for error in e.errors():
+                field_path = " -> ".join(str(x) for x in error['loc'])
+                error_details.append(f"  - {field_path}: {error['msg']} (got: {error.get('input', 'missing')})")
+
             raise ValueError(
                 f"LLM response failed schema validation for {schema_model.__name__}.\n"
-                f"Validation errors:\n{e}\n"
+                f"Validation errors:\n" + "\n".join(error_details) + "\n\n"
+                f"This usually means the LLM:\n"
+                f"  1. Omitted required fields (common with weaker models)\n"
+                f"  2. Used wrong data types\n"
+                f"  3. Violated field constraints\n\n"
+                f"Consider:\n"
+                f"  - Using a model with better structured output support (GPT-4, Claude, Gemini)\n"
+                f"  - Increasing temperature if the model is being too conservative\n"
+                f"  - Simplifying the schema if it's too complex\n\n"
                 f"Response preview: {response.content[:500]}"
             ) from e
 

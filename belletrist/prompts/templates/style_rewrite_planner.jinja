@@ -88,7 +88,12 @@ Before assigning tags to a paragraph, ask:
 
 ## Instructions
 
-1. **Identify paragraphs**: Find natural paragraph boundaries in the text
+1. **Group bullets into conceptual paragraphs**:
+   - If the text is in bullet-point format, group 3-7 related bullets per paragraph
+   - Group by semantic coherence (related ideas, arguments, or examples)
+   - Each ParagraphPlan represents one conceptual paragraph containing multiple bullets
+   - Include ALL bullets for that group in the `original_text` field
+   - If the text is already in prose paragraphs, treat each paragraph as a group
 
 2. **Analyze each paragraph**:
    - What is its rhetorical function?
@@ -152,7 +157,9 @@ Return a JSON object matching this structure:
 
 ## Critical Rules
 
-- **Required fields**: Every paragraph MUST have: `paragraph_id`, `original_text`, `function`, `craft_move`, `craft_tags`, `guidance`
+- **Required fields**: Every paragraph MUST have ALL SIX fields: `paragraph_id`, `original_text`, `function`, `craft_move`, `craft_tags`, `guidance`
+  - **DO NOT omit any field** - if you skip `craft_move`, `function`, or any other field, the response will be invalid
+  - **Check each paragraph** before finalizing - ensure all 6 fields are present
 - **Length targets** (modest overruns acceptable):
   - `overall_strategy`: ~300-500 characters (hard limit: 800)
   - `function`: ~50-150 characters (hard limit: 300)
@@ -166,3 +173,5 @@ Return a JSON object matching this structure:
 ---
 
 Return ONLY the JSON object. Do not include explanatory text before or after. Begin with `{`.
+
+**IMPORTANT**: Verify that EVERY paragraph object has all 6 required fields before returning your response.

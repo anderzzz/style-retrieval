@@ -133,8 +133,8 @@ def _plan_rewrite(
     response = llm.complete_with_schema(
         prompt=prompt,
         schema_model=StyleRewritePlan,
-        system="You are a JSON API that returns structured data. Always respond with valid JSON matching the requested schema. Never include explanatory text.",
-        strict=False  # Some models don't support strict schema mode
+        system="You are a JSON API that returns structured data. Always respond with valid JSON matching the requested schema. Never include explanatory text or wrapper objects."
+        # Uses strict=True by default; falls back to json_object mode if provider doesn't support it
     )
 
     plan: StyleRewritePlan = response.content
