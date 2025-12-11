@@ -489,7 +489,7 @@ class StyleReconstructionFewShotConfig(BasePromptConfig):
     )
     few_shot_examples: list[str] = Field(
         ...,
-        min_length=2,
+        min_length=1,
         description="2-3 example texts demonstrating the target style"
     )
 
@@ -902,3 +902,26 @@ class StyledRewriteConfig(BasePromptConfig):
     @classmethod
     def template_name(cls) -> str:
         return "styled_rewrite"
+
+
+class StyledRewriteNoCraftNotesConfig(BasePromptConfig):
+    """Configuration for styled_rewrite_no_annotations.jinja.
+
+    Like StyledRewriteConfig, but omits craft metadata (function, craft_move,
+    guidance, teaching_note, tags) to test if simpler prompts perform better.
+
+    Shows only: original paragraph text → example passages (raw text only).
+    """
+
+    plan: StyleRewritePlan = Field(
+        ...,
+        description="Complete rewriting plan from planning agent"
+    )
+    retrieved_examples: Dict[int, List[dict]] = Field(
+        ...,
+        description="Map of paragraph_id → list of retrieved example dicts"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "styled_rewrite_no_annotations"

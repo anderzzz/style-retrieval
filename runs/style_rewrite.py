@@ -26,11 +26,11 @@ from belletrist.agent_rewriter import agent_rewrite
 # ============================================================================
 
 # API Configuration
-#API_KEY = os.environ.get('MISTRAL_API_KEY', '')
-API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+API_KEY = os.environ.get('MISTRAL_API_KEY', '')
+#API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 #API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')  # or set directly: "sk-..."
-#MODEL = "mistral/mistral-large-2512"
-MODEL = 'anthropic/claude-sonnet-4-5-20250929'
+MODEL = "mistral/mistral-large-2512"
+#MODEL = 'anthropic/claude-sonnet-4-5-20250929'
 #MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
 
 # Alternative examples:

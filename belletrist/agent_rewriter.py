@@ -18,6 +18,7 @@ from belletrist import LLM, PromptMaker, SegmentStore
 from belletrist.prompts import (
     StyleRewritePlannerConfig,
     StyledRewriteConfig,
+    StyledRewriteNoCraftNotesConfig,
     StyleRewritePlan
 )
 from belletrist.segment_store import SegmentRecord
@@ -298,6 +299,128 @@ def agent_rewrite(
 
     # Phase 3: Rewriting (silently)
     styled_text = _rewrite_with_style(
+        plan=plan,
+        examples=examples,
+        llm=rewriting_llm,
+        prompt_maker=prompt_maker
+    )
+
+    # Return ONLY the styled text, no debugging artifacts
+    return styled_text
+
+
+def _rewrite_with_style_no_annotations(
+    plan: StyleRewritePlan,
+    examples: Dict[int, List[dict]],
+    llm: LLM,
+    prompt_maker: PromptMaker
+) -> str:
+    """Phase 3: Rewriting agent generates styled output WITHOUT craft annotations.
+
+    Like _rewrite_with_style, but uses stripped-down template showing only
+    original paragraph text and raw example passages (no craft metadata).
+
+    Args:
+        plan: StyleRewritePlan with paragraph guidance
+        examples: Retrieved examples by paragraph_id
+        llm: LLM instance (should use rewriting temperature ~0.7)
+        prompt_maker: PromptMaker instance
+
+    Returns:
+        Styled rewritten text (ONLY the text, no metadata)
+    """
+    # Create config (uses no-annotations template)
+    config = StyledRewriteNoCraftNotesConfig(
+        plan=plan,
+        retrieved_examples=examples
+    )
+
+    # Render prompt
+    prompt = prompt_maker.render(config)
+
+    # Call LLM (text output, not schema)
+    response = llm.complete(prompt)
+
+    styled_text = response.content
+    return styled_text
+
+
+def agent_rewrite_no_annotations(
+    flattened_content: str,
+    segment_store: SegmentStore,
+    planning_llm: LLM,
+    rewriting_llm: LLM,
+    prompt_maker: PromptMaker,
+    creative_latitude: str = "moderate",
+    num_examples_per_paragraph: int = 3
+) -> str:
+    """
+    Agent-based style rewriting WITHOUT craft annotations.
+
+    Same as agent_rewrite(), but the rewriting prompt omits all craft metadata
+    (function, craft_move, guidance, teaching_note, tags). Shows only:
+    - Original paragraph text
+    - Example passages (raw text only)
+
+    This tests whether simpler prompts with less instructional scaffolding
+    perform better than annotated prompts.
+
+    Orchestrates 3-phase workflow:
+    1. Planning: Analyze flattened text, create paragraph-level plans
+    2. Retrieval: Search catalog for craft-tagged examples
+    3. Rewriting: Generate styled output using ONLY example texts (no annotations)
+
+    Args:
+        flattened_content: Style-flattened input text to rewrite
+        segment_store: SegmentStore instance with catalog of examples
+        planning_llm: LLM instance for planning (recommended temp=0.5)
+        rewriting_llm: LLM instance for rewriting (recommended temp=0.7)
+        prompt_maker: PromptMaker instance for template rendering
+        creative_latitude: "conservative", "moderate", or "aggressive"
+        num_examples_per_paragraph: Number of examples to retrieve per paragraph
+
+    Returns:
+        str: Styled rewritten text (ONLY the text, no debugging output)
+
+    Raises:
+        ValueError: If planning fails schema validation or catalog search fails
+
+    Example:
+        >>> from belletrist import LLM, LLMConfig, PromptMaker, SegmentStore
+        >>> from belletrist.agent_rewriter import agent_rewrite_no_annotations
+        >>>
+        >>> planning_llm = LLM(LLMConfig(model="gpt-4", api_key=key, temperature=0.5))
+        >>> rewriting_llm = LLM(LLMConfig(model="gpt-4", api_key=key, temperature=0.7))
+        >>>
+        >>> with SegmentStore("segments.db") as store:
+        >>>     styled_text = agent_rewrite_no_annotations(
+        >>>         flattened_content="Democracy has flaws. But it remains best.",
+        >>>         segment_store=store,
+        >>>         planning_llm=planning_llm,
+        >>>         rewriting_llm=rewriting_llm,
+        >>>         prompt_maker=PromptMaker()
+        >>>     )
+        >>> print(styled_text)  # Clean output, no debugging
+    """
+    # Phase 1: Planning (silently) - SAME as annotated version
+    available_tags = list(segment_store.list_all_tags().keys())
+    plan = _plan_rewrite(
+        flattened_text=flattened_content,
+        available_tags=available_tags,
+        llm=planning_llm,
+        prompt_maker=prompt_maker,
+        creative_latitude=creative_latitude
+    )
+
+    # Phase 2: Retrieval (silently) - SAME as annotated version
+    examples = _retrieve_examples(
+        plan=plan,
+        store=segment_store,
+        num_examples=num_examples_per_paragraph
+    )
+
+    # Phase 3: Rewriting (silently) - DIFFERENT: uses no-annotations template
+    styled_text = _rewrite_with_style_no_annotations(
         plan=plan,
         examples=examples,
         llm=rewriting_llm,
