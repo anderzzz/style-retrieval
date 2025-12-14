@@ -1,0 +1,146 @@
+You are analyzing a text to identify its rhetorical situation and select a strategic craft palette.
+
+## Your Task
+
+Analyze the complete text below and select 6-12 craft tags covering the techniques this text needs. Your tags will be used to retrieve exemplary passages demonstrating these techniques for a rewriting agent.
+
+**Think strategically, not prescriptively:**
+- You're NOT assigning techniques to specific paragraphs or sentences
+- You're identifying what the text needs overall as a rhetorical document
+- Select tags covering functional categories: openers, builders, closers, texture/stance
+- The goal is a balanced craft palette (not 5 opening tags and no closers)
+
+---
+
+## Creative Latitude: {{ creative_latitude }}
+
+{% if creative_latitude == "conservative" %}
+**Conservative Enhancement**: Preserve existing structure and organization. Select tags that strengthen what's already there without major transformation. Focus on refinement over reinvention.
+{% elif creative_latitude == "moderate" %}
+**Moderate Enhancement**: Balance faithfulness with improvement. Select tags that enhance clarity, rhythm, and persuasive power while respecting the original approach. Strengthen without distorting.
+{% else %}
+**Aggressive Enhancement**: Prioritize rhetorical power and distinctive voice. Select tags that enable bold stylistic transformation. Restructure and reimagine freely where it serves the writing.
+{% endif %}
+
+---
+
+## Available Tags (Two-Tier System)
+
+### Tier 1: Canonical Craft Tags
+
+These describe universal craft moves. **Check this list first** when selecting tags.
+
+{% for category_data in canonical_tags_formatted %}
+**{{ category_data.category }}:**
+{% for tag, description in category_data.tags %}
+- `{{ tag }}` — {{ description }}
+{% endfor %}
+
+{% endfor %}
+
+### Tier 2: Author-Specific Tags
+
+These capture distinctive moves particular to the target style. Use when canonical tags don't capture what's needed.
+
+{% if tier2_tags %}
+Available Tier 2 tags:
+{% for tag in tier2_tags %}
+- `{{ tag }}`
+{% endfor %}
+{% else %}
+(No author-specific tags available for this catalog)
+{% endif %}
+
+---
+
+## Text to Analyze
+
+{{ flattened_text }}
+
+---
+
+## Selection Framework
+
+Follow this thinking process to select your craft palette:
+
+### Step 1: Diagnose Rhetorical Situation (50-300 chars)
+
+Answer these questions in 1-2 sentences:
+- **What is this text trying to DO?** (argue, explain, explore, persuade, analyze)
+- **What's its logical structure?** (claim-evidence, dialectical, comparative, exploratory)
+- **What's currently weak or missing?** (lacks grounding, needs nuance, too abstract, etc.)
+
+### Step 2: Select Craft Palette (6-12 tags)
+
+Choose tags covering these **functional categories**:
+
+1. **Opening Moves** (select 1-2 tags):
+   - How should this text begin?
+   - Examples: `opens_with_concession`, `opens_with_scene`, `opens_with_question`
+
+2. **Building Moves** (select 3-4 tags):
+   - How should it develop its argument or exposition?
+   - Examples: `builds_via_examples`, `builds_via_contrast`, `builds_via_escalation`, `builds_via_parallel_structure`
+
+3. **Closing Moves** (select 1-2 tags):
+   - How should it land or conclude?
+   - Examples: `closes_with_implication`, `closes_with_short_sentence`, `closes_with_summary`
+
+4. **Texture & Stance Moves** (select 2-3 tags):
+   - What stylistic texture or authorial stance does it need?
+   - Examples: `varies_sentence_length`, `pairs_abstract_and_concrete`, `acknowledges_complexity`, `asserts_with_confidence`
+
+**Selection principles:**
+- Total 6-12 tags (cover all categories, avoid redundancy)
+- Choose tags that will retrieve passages showing WHAT this text needs
+- Prefer canonical tags (Tier 1) when they fit
+- Use Tier 2 tags for distinctive author-specific moves
+- Don't select 5 variants of the same technique
+
+---
+
+## Output Format
+
+Return **ONLY** a JSON object matching this structure:
+
+```json
+{
+  "structural_diagnosis": "1-2 sentence diagnosis (50-300 chars)",
+  "selected_tags": ["tag_one", "tag_two", "tag_three", "...", "tag_N"],
+  "target_example_count": 10
+}
+```
+
+**Example:**
+
+```json
+{
+  "structural_diagnosis": "Claim-based philosophical argument needing concrete grounding and acknowledgment of counterarguments. Currently abstract; needs tension between concession and assertion.",
+  "selected_tags": [
+    "opens_with_concession",
+    "builds_via_examples",
+    "builds_via_contrast",
+    "pairs_abstract_and_concrete",
+    "pivots_with_but",
+    "acknowledges_complexity",
+    "asserts_with_confidence",
+    "varies_sentence_length",
+    "closes_with_implication"
+  ],
+  "target_example_count": 10
+}
+```
+
+---
+
+## Critical Requirements
+
+- **6-12 tags total** (not fewer, not more)
+- **Cover all 4 functional categories** (openers, builders, closers, texture/stance)
+- **Diagnosis must be 50-300 characters** (1-2 sentences)
+- **Only use tags from the lists above** (canonical or Tier 2)
+- **Return valid JSON only** (no explanatory text before or after)
+
+---
+
+Begin with `{`. Return ONLY the JSON object.

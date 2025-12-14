@@ -9,6 +9,10 @@ from belletrist.prompts.prompt_models import (
     StyleRewritePlannerConfig,
     StyledRewriteConfig,
     StyledRewriteNoCraftNotesConfig,
+    # Holistic Strategic Retrieval Models
+    StrategicRetrievalPlan,
+    StrategicRetrievalPlannerConfig,
+    HolisticStyledRewriteConfig,
     # Style Evaluation Models
     StyleFlatteningConfig,
     StyleReconstructionGenericConfig,

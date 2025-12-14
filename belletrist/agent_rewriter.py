@@ -429,3 +429,234 @@ def agent_rewrite_no_annotations(
 
     # Return ONLY the styled text, no debugging artifacts
     return styled_text
+
+
+# =============================================================================
+# Holistic Strategic Retrieval Workflow
+# =============================================================================
+
+def _plan_strategic_retrieval(
+    flattened_text: str,
+    available_tags: list[str],
+    llm: LLM,
+    prompt_maker: PromptMaker,
+    creative_latitude: str = "moderate"
+):
+    """Phase 1: Analyze text holistically and select craft palette.
+
+    Args:
+        flattened_text: Complete flattened text (not per-paragraph)
+        available_tags: All tags from segment catalog
+        llm: Planning LLM (temp=0.5 for consistency)
+        prompt_maker: PromptMaker instance
+        creative_latitude: "conservative", "moderate", or "aggressive"
+
+    Returns:
+        StrategicRetrievalPlan with diagnosis and 6-12 selected tags
+
+    Raises:
+        ValueError: If schema validation fails
+    """
+    from belletrist.prompts import StrategicRetrievalPlannerConfig, StrategicRetrievalPlan
+    from belletrist.prompts.canonical_tags import get_all_canonical_tags, format_for_jinja
+
+    # Filter canonical tags → Tier 2 only
+    canonical_set = get_all_canonical_tags()
+    tier2_tags = [tag for tag in available_tags if tag not in canonical_set]
+
+    # Format canonical tags for template
+    canonical_tags_formatted = format_for_jinja()
+
+    # Create config
+    config = StrategicRetrievalPlannerConfig(
+        flattened_text=flattened_text,
+        tier2_tags=tier2_tags,
+        canonical_tags_formatted=canonical_tags_formatted,
+        creative_latitude=creative_latitude
+    )
+
+    # Render and call LLM
+    prompt = prompt_maker.render(config)
+    response = llm.complete_with_schema(
+        prompt=prompt,
+        schema_model=StrategicRetrievalPlan,
+        system="You are a JSON API returning structured data. Always respond with valid JSON matching the schema."
+    )
+
+    return response.content  # Validated StrategicRetrievalPlan instance
+
+
+def _retrieve_examples_holistic(
+    plan,
+    store: SegmentStore,
+    target_count: int = 10
+) -> list[dict]:
+    """Phase 2: Retrieve strategic examples covering craft palette.
+
+    Strategy:
+    1. Collect all candidates from selected tags
+    2. Deduplicate by segment_id
+    3. Apply heuristics (length, tag specificity, source diversity)
+    4. Return top N examples (8-10)
+
+    Args:
+        plan: StrategicRetrievalPlan with selected_tags
+        store: SegmentStore instance
+        target_count: Number of examples to return (8-10)
+
+    Returns:
+        List of dicts with: segment_id, craft_move, teaching_note, tags, text
+    """
+    # Collect candidates from all selected tags
+    candidates = []
+    for tag in plan.selected_tags:
+        tag_results = store.search_by_tag(tag, exact_match=True)
+        candidates.extend(tag_results)
+
+    # Deduplicate by segment_id (preserving first occurrence)
+    seen_ids = set()
+    unique_candidates = []
+    for candidate in candidates:
+        if candidate.segment_id not in seen_ids:
+            unique_candidates.append(candidate)
+            seen_ids.add(candidate.segment_id)
+
+    # Apply selection heuristics (reuse existing function)
+    selected = select_examples_with_heuristics(
+        unique_candidates,
+        max_examples=target_count
+    )
+
+    # Convert to dicts for template
+    examples = [
+        {
+            'segment_id': seg.segment_id,
+            'craft_move': seg.craft_move,
+            'teaching_note': seg.teaching_note,
+            'tags': seg.tags,
+            'text': seg.text
+        }
+        for seg in selected
+    ]
+
+    return examples
+
+
+def _rewrite_holistic(
+    flattened_text: str,
+    plan,
+    examples: list[dict],
+    llm: LLM,
+    prompt_maker: PromptMaker,
+    include_teaching_notes: bool = True
+) -> str:
+    """Phase 3: Generate styled output with holistic prompt.
+
+    Args:
+        flattened_text: Complete flattened text
+        plan: StrategicRetrievalPlan with diagnosis
+        examples: 8-10 retrieved examples
+        llm: Rewriting LLM (temp=0.7 for creativity)
+        prompt_maker: PromptMaker instance
+        include_teaching_notes: Show teaching notes in prompt
+
+    Returns:
+        str: Styled rewritten text
+    """
+    from belletrist.prompts import HolisticStyledRewriteConfig
+
+    # Create config
+    config = HolisticStyledRewriteConfig(
+        flattened_text=flattened_text,
+        plan=plan,
+        retrieved_examples=examples,
+        include_teaching_notes=include_teaching_notes
+    )
+
+    # Render and call LLM (text output, not schema)
+    prompt = prompt_maker.render(config)
+    response = llm.complete(prompt)
+
+    return response.content
+
+
+def agent_rewrite_holistic(
+    flattened_content: str,
+    segment_store: SegmentStore,
+    planning_llm: LLM,
+    rewriting_llm: LLM,
+    prompt_maker: PromptMaker,
+    creative_latitude: str = "moderate",
+    target_example_count: int = 10,
+    include_teaching_notes: bool = True
+) -> str:
+    """
+    Holistic strategic rewriting: analyzes entire text, selects craft palette,
+    retrieves 8-10 strategic examples, passes to lean rewriter.
+
+    This approach addresses the paragraph-level agent's poor performance (3.10 ranking)
+    by using:
+    - Holistic analysis (not per-paragraph)
+    - 8-10 total examples (not 30+)
+    - Lean rewriter template (closer to vanilla few-shot which ranks 1.30)
+
+    Workflow:
+    1. Plan: Analyze text holistically → select 6-12 strategic tags
+    2. Retrieve: Collect candidates from tags → apply heuristics → return top 8-10
+    3. Rewrite: Pass diagnosis + examples to simple rewriter
+
+    Args:
+        flattened_content: Style-flattened input text
+        segment_store: SegmentStore with example catalog
+        planning_llm: LLM for strategic planning (temp=0.5)
+        rewriting_llm: LLM for rewriting (temp=0.7)
+        prompt_maker: PromptMaker for templates
+        creative_latitude: "conservative", "moderate", or "aggressive"
+        target_example_count: Number of examples to retrieve (8-10)
+        include_teaching_notes: Whether to show teaching notes in rewriter
+
+    Returns:
+        str: Styled rewritten text
+
+    Example:
+        >>> planning_llm = LLM(LLMConfig(model="gpt-4", temperature=0.5))
+        >>> rewriting_llm = LLM(LLMConfig(model="gpt-4", temperature=0.7))
+        >>> with SegmentStore("segments.db") as store:
+        ...     styled = agent_rewrite_holistic(
+        ...         flattened_content=content,
+        ...         segment_store=store,
+        ...         planning_llm=planning_llm,
+        ...         rewriting_llm=rewriting_llm,
+        ...         prompt_maker=PromptMaker(),
+        ...         target_example_count=10
+        ...     )
+    """
+    # Phase 1: Strategic planning (silently)
+    available_tags = list(segment_store.list_all_tags().keys())
+    plan = _plan_strategic_retrieval(
+        flattened_text=flattened_content,
+        available_tags=available_tags,
+        llm=planning_llm,
+        prompt_maker=prompt_maker,
+        creative_latitude=creative_latitude
+    )
+
+    # Phase 2: Holistic retrieval (silently)
+    examples = _retrieve_examples_holistic(
+        plan=plan,
+        store=segment_store,
+        target_count=target_example_count
+    )
+
+    # Phase 3: Holistic rewriting (silently)
+    styled_text = _rewrite_holistic(
+        flattened_text=flattened_content,
+        plan=plan,
+        examples=examples,
+        llm=rewriting_llm,
+        prompt_maker=prompt_maker,
+        include_teaching_notes=include_teaching_notes
+    )
+
+    # Return ONLY the styled text, no debugging artifacts
+    return styled_text

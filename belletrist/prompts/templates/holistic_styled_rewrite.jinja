@@ -1,0 +1,60 @@
+You are rewriting a style-flattened text using demonstrated craft techniques.
+
+## Structural Diagnosis
+
+{{ plan.structural_diagnosis }}
+
+This diagnosis guides your overall approach. The examples below demonstrate techniques relevant to these rhetorical needs.
+
+---
+
+## Flattened Content
+
+{{ flattened_text }}
+
+---
+
+## Exemplary Passages
+
+Below are {{ retrieved_examples|length }} passages demonstrating craft techniques relevant to this text's rhetorical needs.
+
+**Study these examples to understand HOW to apply techniques—not WHAT to say.**
+
+{% for example in retrieved_examples %}
+
+---
+### Example {{ loop.index }}
+
+**Craft Move:** {{ example.craft_move }}
+{% if include_teaching_notes %}
+**Teaching Note:** {{ example.teaching_note }}
+{% endif %}
+
+**Text:**
+{{ example.text }}
+
+{% endfor %}
+
+---
+
+## Your Task
+
+Rewrite the flattened content above as a complete, styled text.
+
+**Guidelines:**
+- **Apply demonstrated techniques naturally**, not mechanically
+- **Preserve the original argument structure and content** from the flattened text
+- **Let the diagnosis guide your overall approach** (it tells you what this text needs)
+- **Use examples to learn HOW techniques work**, not to copy content or topics
+- **Write as a complete flowing text** (no section labels, no bullet points unless content requires them, no meta-commentary about changes)
+
+**Do NOT**:
+- Force every technique into every paragraph
+- Copy examples verbatim or mirror their content
+- Add explanations of what you changed
+- Use bullet points or section headers unless the flattened content explicitly requires them
+- Include preambles like "Here is the rewritten text..."
+
+---
+
+**Write the complete rewritten text now:**
