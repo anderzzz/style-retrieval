@@ -10,6 +10,7 @@ from belletrist.data_sampler import DataSampler, TextSegment
 from belletrist.segment_store import SegmentStore, SegmentRecord
 from belletrist.style_evaluation_store import StyleEvaluationStore
 from belletrist.agent_rewriter import agent_rewrite_holistic
+from belletrist.cross_model_comparison import CrossModelComparisonStore, Combination
 
 __all__ = [
     'LLM',
@@ -25,4 +26,6 @@ __all__ = [
     'SegmentRecord',
     'StyleEvaluationStore',
     'agent_rewrite_holistic',
+    'CrossModelComparisonStore',
+    'Combination',
 ]
