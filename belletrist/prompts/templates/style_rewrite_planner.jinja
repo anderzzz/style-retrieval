@@ -82,28 +82,25 @@ Before assigning tags to a paragraph, ask:
 
 ## Text to Analyze
 
+This text has been rewritten in neutral journalistic prose. It preserves all argumentative structure and rhetorical moves, but uses bland, unmarked language without distinctive stylistic choices.
+
 {{ flattened_text }}
 
 ---
 
 ## Instructions
 
-1. **Group bullets into conceptual paragraphs**:
-   - If the text is in bullet-point format, group 3-7 related bullets per paragraph
-   - Group by semantic coherence (related ideas, arguments, or examples)
-   - Each ParagraphPlan represents one conceptual paragraph containing multiple bullets
-   - Include ALL bullets for that group in the `original_text` field
-   - If the text is already in prose paragraphs, treat each paragraph as a group
-
-2. **Analyze each paragraph**:
+1. **Analyze each paragraph**:
+   - The text above is in prose paragraph format
+   - Each paragraph represents a conceptual unit to be enhanced
    - What is its rhetorical function?
-   - What's weak or could be stronger?
+   - What stylistic weaknesses need addressing? (bland word choices, flat rhythm, lack of voice)
 
-3. **Prescribe craft moves**:
+2. **Prescribe craft moves**:
    - Name the primary technique (`craft_move` field): a short descriptor like "concessive_opening" or "pivot_with_grounding"
    - Select 1-4 tags (`craft_tags` field) that will retrieve helpful examples from the catalog
 
-4. **Write guidance**: Brief instruction (20-300 chars, 2-3 sentences) on HOW to apply the craft move—what specifically should change?
+3. **Write guidance**: Brief instruction (20-300 chars, 2-3 sentences) on HOW to apply the craft move—what specifically should change to add stylistic distinction?
 
 ---
 
@@ -131,23 +128,23 @@ Return a JSON object matching this structure:
 
 ```json
 {
-  "overall_strategy": "Transform flat expository prose into engaging philosophical argument. Strengthen openings, add concrete grounding, sharpen transitions.",
+  "overall_strategy": "Transform neutral expository prose into engaging philosophical argument with distinctive voice. Strengthen openings, add concrete grounding, vary rhythm, sharpen transitions.",
   "paragraphs": [
     {
       "paragraph_id": 0,
-      "original_text": "Democracy has problems. It can be slow and inefficient. Sometimes the majority makes mistakes.",
+      "original_text": "Democracy has some problems. It can be slow and inefficient. Sometimes the majority makes mistakes.",
       "function": "Introduce topic by acknowledging democracy's flaws",
       "craft_move": "concessive_opening_with_escalation",
       "craft_tags": ["opens_with_concession", "builds_via_escalation"],
-      "guidance": "Open by granting the critic's strongest point, not listing flaws. Let each flaw feel weightier than the last. Examples will show generous concession rather than perfunctory."
+      "guidance": "Transform bland acknowledgment into generous concession. Let each flaw escalate in weight. Examples will show how to give the opposition its due rather than perfunctory listing."
     },
     {
       "paragraph_id": 1,
-      "original_text": "But democracy also has strengths. It allows for self-correction. People can vote out bad leaders.",
+      "original_text": "However, democracy also has strengths. It allows for self-correction. People can vote out bad leaders.",
       "function": "Pivot to democracy's advantages",
       "craft_move": "emphatic_pivot_with_grounding",
       "craft_tags": ["pivots_with_but", "builds_via_examples", "pairs_abstract_and_concrete"],
-      "guidance": "Make the pivot emphatic—a turn, not a wobble. Ground 'self-correction' in concrete instance. Examples show how to make the abstract tangible."
+      "guidance": "Make the transition emphatic—a turn, not a wobble. Ground abstract 'self-correction' in vivid instance. Add rhythm variation. Examples show how to make ideas tangible."
     }
   ]
 }
