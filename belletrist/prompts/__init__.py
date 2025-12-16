@@ -15,6 +15,7 @@ from belletrist.prompts.prompt_models import (
     HolisticStyledRewriteConfig,
     # Style Evaluation Models
     StyleFlatteningConfig,
+    StyleNeutralizationConfig,
     StyleReconstructionGenericConfig,
     StyleReconstructionFewShotConfig,
     StyleReconstructionAuthorConfig,

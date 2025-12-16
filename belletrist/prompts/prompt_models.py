@@ -457,6 +457,35 @@ class StyleFlatteningAggressiveConfig(BasePromptConfig):
         return "style_flattening_aggressive"
 
 
+class StyleNeutralizationConfig(BasePromptConfig):
+    """
+    Configuration for style_neutralization.jinja - neutral journalistic rewrite.
+
+    Rewrites text in bland, straightforward journalistic prose while preserving
+    the complete rhetorical and argumentative structure. Maintains concessions,
+    qualifications, logical connectors, and emphasis patterns, but removes
+    distinctive stylistic choices.
+
+    Different from StyleFlatteningConfig (which extracts/summarizes) and
+    StyleFlatteningAggressiveConfig (which compresses). This produces a
+    full-length neutral rewrite (~80-100% of original length) in plain,
+    functional prose suitable for later stylistic reconstruction.
+
+    Think: AP style or plain academic prose - clear and functional but
+    stylistically unmarked.
+    """
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="The text to rewrite in neutral style"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "style_neutralization"
+
+
 class StyleReconstructionGenericConfig(BasePromptConfig):
     """
     Configuration for style_reconstruction_generic.jinja - baseline reconstruction.
