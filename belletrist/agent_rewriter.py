@@ -88,6 +88,101 @@ def select_examples_with_heuristics(
     return selected[:max_examples]
 
 
+def select_examples_statistically(
+    store: SegmentStore,
+    num_examples: int = 10
+) -> List[SegmentRecord]:
+    """Select examples using purely statistical criteria.
+
+    Strategy:
+    1. Score segments by common tag representation
+    2. Greedy selection maximizing tag diversity
+    3. Ensure file source diversity
+    4. Deterministic (no randomness)
+
+    Returns segments representing most common tags without domination.
+
+    Args:
+        store: SegmentStore instance with catalog
+        num_examples: Number of examples to return (default 10)
+
+    Returns:
+        List of SegmentRecords selected statistically
+    """
+    # Load all segments from catalog
+    catalog = store.browse_catalog()
+    if not catalog:
+        return []
+
+    # Get tag frequency distribution
+    tag_frequencies = store.list_all_tags()
+    if not tag_frequencies:
+        return []
+
+    # Retrieve full SegmentRecords for all segments
+    all_segments = [store.get_segment(entry['segment_id']) for entry in catalog]
+
+    # Score each segment by tag importance and specificity
+    scored = []
+    for segment in all_segments:
+        # Calculate tag importance: sum of tag frequencies
+        tag_importance = sum(tag_frequencies.get(tag, 0) for tag in segment.tags)
+
+        # Specificity bonus: prefer focused examples (fewer tags)
+        num_tags = len(segment.tags)
+        if num_tags <= 3:
+            specificity_bonus = 1.0
+        else:
+            specificity_bonus = 0.5
+
+        # Combined score
+        score = tag_importance * specificity_bonus
+
+        scored.append((score, segment))
+
+    # Sort by score descending
+    scored.sort(reverse=True, key=lambda x: x[0])
+
+    # Greedy selection with diversity constraints
+    selected = []
+    seen_tags = set()  # Set of tags already represented
+    seen_files = set()
+
+    for score, segment in scored:
+        if len(selected) >= num_examples:
+            break
+
+        # Calculate novelty: how many completely new tags this segment adds
+        new_tags = [tag for tag in segment.tags if tag not in seen_tags]
+        novelty = len(new_tags)
+
+        # File diversity check
+        is_new_file = segment.file_name not in seen_files
+
+        # Selection criteria:
+        # - Require at least one new tag (novelty > 0)
+        # - Prefer segments with high novelty
+        # - Prefer new files when possible
+        if novelty > 0:
+            # Prefer new files, but don't make it absolute requirement
+            if is_new_file or len(selected) < num_examples // 2:
+                selected.append(segment)
+                seen_files.add(segment.file_name)
+
+                # Add all tags from this segment to seen set
+                seen_tags.update(segment.tags)
+
+    # If we didn't get enough examples (too strict), fall back to top-scored
+    if len(selected) < num_examples:
+        for score, segment in scored:
+            if segment not in selected:
+                selected.append(segment)
+                if len(selected) >= num_examples:
+                    break
+
+    return selected[:num_examples]
+
+
 def _plan_rewrite(
     flattened_text: str,
     available_tags: List[str],
@@ -548,8 +643,9 @@ def _rewrite_holistic(
     examples: list[dict],
     llm: LLM,
     prompt_maker: PromptMaker,
-    include_teaching_notes: bool = True
-) -> str:
+    include_teaching_notes: bool = True,
+    return_prompt: bool = False
+) -> str | tuple[str, str]:
     """Phase 3: Generate styled output with holistic prompt.
 
     Args:
@@ -559,9 +655,11 @@ def _rewrite_holistic(
         llm: Rewriting LLM (temp=0.7 for creativity)
         prompt_maker: PromptMaker instance
         include_teaching_notes: Show teaching notes in prompt
+        return_prompt: If True, returns (styled_text, prompt) tuple
 
     Returns:
         str: Styled rewritten text
+        OR tuple[str, str]: (styled_text, prompt) if return_prompt=True
     """
     from belletrist.prompts import HolisticStyledRewriteConfig
 
@@ -575,8 +673,11 @@ def _rewrite_holistic(
 
     # Render and call LLM (text output, not schema)
     prompt = prompt_maker.render(config)
+    print(prompt)
     response = llm.complete(prompt)
 
+    if return_prompt:
+        return response.content, prompt
     return response.content
 
 
@@ -588,8 +689,9 @@ def agent_rewrite_holistic(
     prompt_maker: PromptMaker,
     creative_latitude: str = "moderate",
     target_example_count: int = 10,
-    include_teaching_notes: bool = True
-) -> str:
+    include_teaching_notes: bool = True,
+    return_debug_info: bool = False
+) -> str | dict:
     """
     Holistic strategic rewriting: analyzes entire text, selects craft palette,
     retrieves 8-10 strategic examples, passes to lean rewriter.
@@ -614,9 +716,12 @@ def agent_rewrite_holistic(
         creative_latitude: "conservative", "moderate", or "aggressive"
         target_example_count: Number of examples to retrieve (8-10)
         include_teaching_notes: Whether to show teaching notes in rewriter
+        return_debug_info: If True, returns dict with styled_text, plan, examples, and prompt
 
     Returns:
-        str: Styled rewritten text
+        str: Styled rewritten text (if return_debug_info=False)
+        OR dict: {'styled_text': str, 'plan': StrategicRetrievalPlan,
+                  'examples': list[dict], 'rewrite_prompt': str} (if return_debug_info=True)
 
     Example:
         >>> planning_llm = LLM(LLMConfig(model="gpt-4", temperature=0.5))
@@ -630,6 +735,18 @@ def agent_rewrite_holistic(
         ...         prompt_maker=PromptMaker(),
         ...         target_example_count=10
         ...     )
+
+        >>> # With debug info
+        >>> with SegmentStore("segments.db") as store:
+        ...     result = agent_rewrite_holistic(
+        ...         flattened_content=content,
+        ...         segment_store=store,
+        ...         planning_llm=planning_llm,
+        ...         rewriting_llm=rewriting_llm,
+        ...         prompt_maker=PromptMaker(),
+        ...         return_debug_info=True
+        ...     )
+        >>> print(result['rewrite_prompt'])  # Inspect the prompt used
     """
     # Phase 1: Strategic planning (silently)
     available_tags = list(segment_store.list_all_tags().keys())
@@ -640,6 +757,7 @@ def agent_rewrite_holistic(
         prompt_maker=prompt_maker,
         creative_latitude=creative_latitude
     )
+    print(plan)
 
     # Phase 2: Holistic retrieval (silently)
     examples = _retrieve_examples_holistic(
@@ -648,15 +766,121 @@ def agent_rewrite_holistic(
         target_count=target_example_count
     )
 
-    # Phase 3: Holistic rewriting (silently)
-    styled_text = _rewrite_holistic(
-        flattened_text=flattened_content,
-        plan=plan,
-        examples=examples,
-        llm=rewriting_llm,
-        prompt_maker=prompt_maker,
-        include_teaching_notes=include_teaching_notes
+    # Phase 3: Holistic rewriting (with optional prompt return)
+    if return_debug_info:
+        styled_text, rewrite_prompt = _rewrite_holistic(
+            flattened_text=flattened_content,
+            plan=plan,
+            examples=examples,
+            llm=rewriting_llm,
+            prompt_maker=prompt_maker,
+            include_teaching_notes=include_teaching_notes,
+            return_prompt=True
+        )
+
+        return {
+            'styled_text': styled_text,
+            'plan': plan,
+            'examples': examples,
+            'rewrite_prompt': rewrite_prompt
+        }
+    else:
+        styled_text = _rewrite_holistic(
+            flattened_text=flattened_content,
+            plan=plan,
+            examples=examples,
+            llm=rewriting_llm,
+            prompt_maker=prompt_maker,
+            include_teaching_notes=include_teaching_notes
+        )
+
+        # Return ONLY the styled text, no debugging artifacts
+        return styled_text
+
+
+# =============================================================================
+# Statistical Few-Shot Workflow
+# =============================================================================
+
+def agent_rewrite_statistical(
+    flattened_content: str,
+    segment_store: SegmentStore,
+    rewriting_llm: LLM,
+    prompt_maker: PromptMaker,
+    num_examples: int = 10
+) -> str:
+    """
+    Statistical few-shot rewriting with no planning phase.
+
+    This variant removes the planning phase entirely and uses purely
+    statistical selection to choose examples representing common tags
+    with diversity. Aims to match or exceed vanilla few-shot performance
+    (rank 1.30) by following its simple structure.
+
+    Workflow:
+    1. Select examples statistically from catalog (no planning)
+    2. Format examples (teaching_note + text only)
+    3. Render template (examples → neutral text → task)
+    4. Generate styled output
+
+    Key design decisions:
+    - No planning agent, no diagnosis, no craft annotations
+    - Mimics vanilla few-shot structure (examples first)
+    - Statistical selection ensures common tags represented with diversity
+    - Deterministic (no randomness)
+
+    Args:
+        flattened_content: Style-flattened input text to rewrite
+        segment_store: SegmentStore with example catalog
+        rewriting_llm: LLM for rewriting (recommended temp=0.7)
+        prompt_maker: PromptMaker for template rendering
+        num_examples: Number of examples to select (default 10)
+
+    Returns:
+        str: Styled rewritten text
+
+    Example:
+        >>> from belletrist import LLM, LLMConfig, PromptMaker, SegmentStore
+        >>> from belletrist.agent_rewriter import agent_rewrite_statistical
+        >>>
+        >>> rewriting_llm = LLM(LLMConfig(model="gpt-4o", temperature=0.7))
+        >>>
+        >>> with SegmentStore("segments.db") as store:
+        ...     styled_text = agent_rewrite_statistical(
+        ...         flattened_content="Democracy has flaws. But it remains best.",
+        ...         segment_store=store,
+        ...         rewriting_llm=rewriting_llm,
+        ...         prompt_maker=PromptMaker(),
+        ...         num_examples=10
+        ...     )
+        >>> print(styled_text)
+    """
+    from belletrist.prompts import StatisticalFewShotRewriteConfig
+
+    # Step 1: Statistical selection (no planning phase)
+    selected_segments = select_examples_statistically(
+        store=segment_store,
+        num_examples=num_examples
     )
 
+    # Step 2: Format for template (teaching_note + text only, no craft_move)
+    examples = [
+        {
+            'teaching_note': seg.teaching_note,
+            'text': seg.text
+        }
+        for seg in selected_segments
+    ]
+
+    # Step 3: Create config and render template
+    config = StatisticalFewShotRewriteConfig(
+        content_summary=flattened_content,
+        few_shot_examples=examples
+    )
+    prompt = prompt_maker.render(config)
+
+    # Step 4: Generate styled output (text mode, not schema)
+    response = rewriting_llm.complete(prompt)
+
     # Return ONLY the styled text, no debugging artifacts
-    return styled_text
+    return response.content

@@ -1,0 +1,32 @@
+You are given a text written in neutral, straightforward journalistic prose. The text preserves all argumentative structure, rhetorical moves, and content, but uses bland, unmarked language without distinctive stylistic choices.
+
+Your task is to rewrite this text with the writing style demonstrated in the examples below.
+
+**CRITICAL REQUIREMENTS:**
+- Match the STYLE of the examples (rhythm, vocabulary, tone, sentence structure), not their formatting choices or topics.
+- Preserve all argumentative structure and rhetorical moves from the neutral text.
+- Transform the neutral prose by applying the stylistic techniques shown in the examples.
+- If the examples are plain prose with no titles/headers/formatting, write plain prose.
+- Do NOT add meta-commentary, preambles like "Here is the passage...", or postscripts explaining your work.
+- Simply write naturally in this style.
+
+**EXAMPLE TEXTS (demonstrating the target style):**
+
+{% for example in few_shot_examples %}
+---
+
+**Teaching Note:** {{ example.teaching_note }}
+
+{{ example.text }}
+
+{% endfor %}
+
+---
+
+**NEUTRAL TEXT TO ENHANCE:**
+
+{{ content_summary }}
+
+---
+
+Write the styled version directly, with no preamble or commentary:

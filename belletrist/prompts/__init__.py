@@ -13,6 +13,7 @@ from belletrist.prompts.prompt_models import (
     StrategicRetrievalPlan,
     StrategicRetrievalPlannerConfig,
     HolisticStyledRewriteConfig,
+    StatisticalFewShotRewriteConfig,
     # Style Evaluation Models
     StyleFlatteningConfig,
     StyleNeutralizationConfig,

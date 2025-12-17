@@ -1063,3 +1063,31 @@ class HolisticStyledRewriteConfig(BasePromptConfig):
     @classmethod
     def template_name(cls) -> str:
         return "holistic_styled_rewrite"
+
+
+class StatisticalFewShotRewriteConfig(BasePromptConfig):
+    """Configuration for statistical_fewshot_rewrite.jinja.
+
+    Pure few-shot template with statistically selected examples.
+    No planning, no diagnosis, no craft_move labels.
+    Mimics vanilla few-shot structure but uses catalog examples.
+
+    This variant removes the planning phase entirely and uses purely
+    statistical selection to choose examples representing common tags
+    with diversity. Aims to match or exceed vanilla few-shot performance
+    (rank 1.30) by following its simple structure.
+    """
+    content_summary: str = Field(
+        ...,
+        min_length=100,
+        description="Neutral text to enhance"
+    )
+    few_shot_examples: List[dict] = Field(
+        ...,
+        min_length=1,
+        description="List of examples, each with 'teaching_note' and 'text' keys"
+    )
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "statistical_fewshot_rewrite"
