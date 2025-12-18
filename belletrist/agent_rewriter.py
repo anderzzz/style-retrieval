@@ -673,7 +673,6 @@ def _rewrite_holistic(
 
     # Render and call LLM (text output, not schema)
     prompt = prompt_maker.render(config)
-    print(prompt)
     response = llm.complete(prompt)
 
     if return_prompt:
@@ -757,7 +756,6 @@ def agent_rewrite_holistic(
         prompt_maker=prompt_maker,
         creative_latitude=creative_latitude
     )
-    print(plan)
 
     # Phase 2: Holistic retrieval (silently)
     examples = _retrieve_examples_holistic(
@@ -878,6 +876,7 @@ def agent_rewrite_statistical(
         few_shot_examples=examples
     )
     prompt = prompt_maker.render(config)
+    print (prompt)
 
     # Step 4: Generate styled output (text mode, not schema)
     response = rewriting_llm.complete(prompt)

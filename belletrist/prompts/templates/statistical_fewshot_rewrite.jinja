@@ -1,6 +1,6 @@
 You are given a text written in neutral, straightforward journalistic prose. The text preserves all argumentative structure, rhetorical moves, and content, but uses bland, unmarked language without distinctive stylistic choices.
 
-Your task is to rewrite this text with the writing style demonstrated in the examples below.
+Your task is to rewrite this text with the writing style demonstrated and explained in the examples below.
 
 **CRITICAL REQUIREMENTS:**
 - Match the STYLE of the examples (rhythm, vocabulary, tone, sentence structure), not their formatting choices or topics.
@@ -10,6 +10,8 @@ Your task is to rewrite this text with the writing style demonstrated in the exa
 - Do NOT add meta-commentary, preambles like "Here is the passage...", or postscripts explaining your work.
 - Simply write naturally in this style.
 
+In what follows, examples texts are provided allong with a teaching note that highlights the style demonstrated in each example. Use these examples to guide your work.
+
 **EXAMPLE TEXTS (demonstrating the target style):**
 
 {% for example in few_shot_examples %}
@@ -17,6 +19,7 @@ Your task is to rewrite this text with the writing style demonstrated in the exa
 
 **Teaching Note:** {{ example.teaching_note }}
 
+**Example Text:**
 {{ example.text }}
 
 {% endfor %}
