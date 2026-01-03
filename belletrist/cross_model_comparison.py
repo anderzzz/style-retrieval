@@ -36,7 +36,7 @@ Example:
     # Export for Bradley-Terry analysis
     df = comparer.to_dataframe()
 """
-from typing import List, Tuple, Optional, Dict
+from typing import List, Optional, Dict
 from pathlib import Path
 from dataclasses import dataclass
 import sqlite3
