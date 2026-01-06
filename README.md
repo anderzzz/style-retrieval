@@ -320,7 +320,6 @@ The framework includes 11 active prompt configurations (see `belletrist/prompts/
 - `ExemplarySegmentAnalysisConfig`: Identifies exemplary passages
 
 **Style Evaluation**:
-- `StyleFlatteningConfig`: Extracts content (70-90% original length)
 - `StyleNeutralizationConfig`: Neutral rewrite (80-100% length, preserves structure)
 - `StyleReconstructionGenericConfig`: Baseline reconstruction
 - `StyleReconstructionFewShotConfig`: Few-shot learning
@@ -412,12 +411,6 @@ RECONSTRUCTORS_KWARGS = {
 ### Changing Judge Criteria
 
 Edit `prompts/templates/style_judge_comparative.jinja` to modify ranking instructions.
-
-### Using Different Flattening Strategies
-
-Switch between:
-- `StyleFlatteningConfig`: Content extraction (shorter)
-- `StyleNeutralizationConfig`: Neutral rewrite (full-length, preserves structure)
 
 ## License
 

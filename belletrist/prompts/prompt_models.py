@@ -153,26 +153,6 @@ class ExemplarySegmentAnalysisConfig(BasePromptConfig):
 # Style Evaluation Models
 # =============================================================================
 
-class StyleFlatteningConfig(BasePromptConfig):
-    """Configuration for style_flattening.jinja - moderate content extraction.
-
-    Extracts semantic and argumentative content from text while removing
-    all stylistic elements, creating a style-neutral summary suitable for
-    reconstruction experiments. Produces prose-form output at ~70-90% of
-    original length.
-    """
-
-    text: str = Field(
-        ...,
-        min_length=1,
-        description="The text to extract content from"
-    )
-
-    @classmethod
-    def template_name(cls) -> str:
-        return "style_flattening"
-
-
 class StyleNeutralizationConfig(BasePromptConfig):
     """Configuration for style_neutralization.jinja - neutral journalistic rewrite.
 
@@ -181,8 +161,7 @@ class StyleNeutralizationConfig(BasePromptConfig):
     qualifications, logical connectors, and emphasis patterns, but removes
     distinctive stylistic choices.
 
-    Different from StyleFlatteningConfig (which extracts/summarizes).
-    This produces a full-length neutral rewrite (~80-100% of original length)
+    Produces a full-length neutral rewrite (~80-100% of original length)
     in plain, functional prose suitable for later stylistic reconstruction.
 
     Think: AP style or plain academic prose - clear and functional but

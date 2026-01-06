@@ -351,8 +351,7 @@ This project inherits extensive prompt models from `russell_writes`:
 - `SynthesizerOfPrinciplesConfig`: Prescriptive guide generation
 
 ### Style Evaluation Models
-- `StyleFlatteningConfig`: Content extraction
-- `StyleFlatteningAggressiveConfig`: Aggressive compression
+- `StyleNeutralizationConfig`: Neutral rewrite preserving rhetorical structure
 - `StyleReconstructionGenericConfig`: Baseline reconstruction
 - `StyleReconstructionFewShotConfig`: Few-shot learning
 - `StyleReconstructionAuthorConfig`: Author name prompting

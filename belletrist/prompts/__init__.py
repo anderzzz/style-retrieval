@@ -5,7 +5,6 @@ from belletrist.prompts.prompt_models import (
     ExemplarySegmentAnalysis,
     ExemplarySegmentAnalysisConfig,
     # Style Evaluation Models
-    StyleFlatteningConfig,
     StyleNeutralizationConfig,
     StyleReconstructionGenericConfig,
     StyleReconstructionFewShotConfig,
