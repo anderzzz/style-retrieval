@@ -451,38 +451,26 @@ for chunk in sampler.iter_paragraph_chunks(file_index=0, chunk_size=3):
     print(f"Processing: {chunk.text[:100]}...")
 ```
 
-### Running the Style Retrieval Script
+### Building the Segment Catalog
 
-The main workflow is implemented in `runs/style_retrieval.py`:
+The segment catalog is built using the `style_segmentor.ipynb` notebook:
 
-```bash
-# Configure parameters in the script first (API key, model, data paths)
-python runs/style_retrieval.py
-```
+1. Configure chapters in `chapters_config.yaml`
+2. Set model and API key in the notebook
+3. Run all cells to analyze chapters and build catalog
 
-**Configuration parameters** (edit in script):
-```python
-# API Configuration
-API_KEY = os.environ.get('TOGETHER_AI_API_KEY', '')
-MODEL = "together_ai/Qwen/Qwen3-235B-A22B-Thinking-2507"
-
-# Data Paths
-DATA_PATH = Path(__file__).parent.parent / "data" / "russell"
-DB_PATH = Path(__file__).parent.parent / "segments.db"
-
-# Analysis Parameters
-FILE_INDEX = 0           # Which file to analyze
-CHAPTER_START = 9        # Starting paragraph
-CHAPTER_END = 41         # Ending paragraph
-TEMPERATURE = 0.7        # LLM temperature
-```
+**Key features**:
+- **Multi-chapter processing**: Analyzes multiple chapters in sequence
+- **Skip existing**: Resume after interruption without re-analyzing
+- **Tag consistency**: Encourages reuse of existing tags across chapters
+- **Skills pattern**: Catalog designed for agent browsing
 
 **Workflow phases**:
-1. **Analysis**: LLM identifies exemplary passages from chapter
+1. **Analysis**: LLM identifies exemplary passages from each chapter
 2. **Storage**: Passages saved to SQLite catalog with craft annotations
 3. **Retrieval Demo**: Browse catalog, search by tags, retrieve segments
 
-**Output**: `segments.db` containing catalog of passages ready for agent retrieval.
+**Output**: `segments.db` (or similar) containing catalog of passages ready for agent retrieval.
 
 ## Design Rationale
 
