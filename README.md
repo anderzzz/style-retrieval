@@ -51,7 +51,6 @@ The included experiments use prose by Bertrand Russell as test data, but the fra
 - **Style Neutralization**: Rewrites texts in bland journalistic prose while preserving argumentative structure
 - **Multiple Reconstruction Methods**: Generic baseline, few-shot learning, author name prompting, statistical agent selection
 - **Blind Comparative Evaluation**: Judge LLMs rank reconstructions without knowing which method produced them
-- **Cross-Model Comparison**: Bradley-Terry analysis of reconstruction quality across different LLMs
 
 ### Engineering Features
 - **Type-Safe Configuration**: Pydantic models ensure prompt validation and reproducibility
@@ -100,7 +99,6 @@ The included experiments use prose by Bertrand Russell as test data, but the fra
 - `data_sampler.py`: Text loading with full provenance tracking via `TextSegment` dataclass
 - `segment_store.py`: SQLite catalog for curated passage examples with CRUD operations
 - `style_evaluation_store.py`: Crash-resilient storage for evaluation experiments
-- `cross_model_comparison.py`: Storage for cross-model Bradley-Terry comparisons
 
 **Pattern**: Every LLM call is saved to SQLite immediately after completion. If your experiment crashes at call #287 out of 320, you resume from #288, not #0.
 
@@ -145,17 +143,7 @@ The included experiments use prose by Bertrand Russell as test data, but the fra
 
 ---
 
-### 3. `style_evaluation.ipynb`
-**Purpose**: Similar to statistical evaluation but includes the **agent_holistic** method.
-
-**Additional Method**:
-- **Agent Holistic**: Two-phase approach with strategic planning that analyzes rhetorical needs and selects 8-10 examples accordingly
-
-**When to use**: Compare holistic agent approach (with planning phase) against statistical selection.
-
----
-
-### 4. `style_evaluation_fewshot_sources.ipynb`
+### 3. `style_evaluation_fewshot_sources.ipynb`
 **Purpose**: Controlled experiment testing whether few-shot examples need to come from the same author.
 
 **Comparison**:
@@ -164,24 +152,6 @@ The included experiments use prose by Bertrand Russell as test data, but the fra
 - Few-shot with mixed sources
 
 **When to use**: Investigate the source of few-shot effectiveness.
-
----
-
-### 5. `cross_model_evaluation.ipynb`
-**Purpose**: Compare reconstruction quality across different LLMs and methods.
-
-**Workflow**:
-1. Pull reconstructions from multiple existing evaluation databases
-2. Create random 4-way comparisons (e.g., Mistral+fewshot vs GPT+author vs Qwen+agent)
-3. Judge ranks all 4 anonymously
-4. Bradley-Terry model estimates strength of each LLM×method combination
-
-**Output**:
-- `cross_eval_*.csv`: Full judgment data
-- `cross_eval_*.bt.csv`: Pairwise preferences for Bradley-Terry
-- `cross_eval_*.stats.csv`: Mean ranks, win rates, confidence intervals
-
-**When to use**: After running evaluations with multiple LLMs, aggregate results for cross-model comparison.
 
 ---
 
@@ -297,13 +267,6 @@ Edit notebook cells to configure:
    - Side-by-side reconstructions
 
 ### Advanced Workflows
-
-**Compare across LLMs**:
-```bash
-# Run style_evaluation_statistical.ipynb with different reconstruction LLMs
-# Each run creates a separate database
-# Then run cross_model_evaluation.ipynb to aggregate
-```
 
 **Test few-shot source dependency**:
 ```bash
@@ -444,8 +407,6 @@ Author:            18% wins, 31% top-2
 Generic:            1% wins,  6% top-2
 ```
 
-**Bradley-Terry Strength**: Maximum likelihood estimate of "ability" (used in cross-model evaluation)
-
 ## Customization
 
 ### Adding a New Reconstruction Method
@@ -497,7 +458,6 @@ style-retrieval/
 │   ├── data_sampler.py              # Text sampling with provenance
 │   ├── segment_store.py             # SQLite catalog for passages
 │   ├── style_evaluation_store.py    # Crash-resilient evaluation storage
-│   ├── cross_model_comparison.py    # Bradley-Terry cross-model analysis
 │   ├── agent_rewriter.py            # Agent-based reconstruction workflows
 │   └── prompts/
 │       ├── prompt_models.py         # Pydantic configuration models
@@ -509,8 +469,7 @@ style-retrieval/
 │   └── russell/                     # Sample data (Bertrand Russell essays)
 ├── style_segmentor.ipynb            # Build passage catalog
 ├── style_evaluation_statistical.ipynb  # Main evaluation (⭐ start here)
-├── style_evaluation.ipynb           # Evaluation with holistic agent
-├── cross_model_evaluation.ipynb     # Cross-model Bradley-Terry analysis
+├── style_evaluation_fewshot_sources.ipynb  # Few-shot source comparison
 ├── method_performance_summary.md    # Generated: Results summary
 ├── crash_resilient_sqlite_patterns.md  # Generated: Engineering guide
 ├── reconstruction_outputs/          # Generated: Sample comparisons
